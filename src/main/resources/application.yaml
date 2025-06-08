@@ -51,6 +51,3 @@ hwanbee:
   exchange-rates-url: ${HWANBEE_DOMAIN}/api/exchange/v1/rates
   exchange-rate-url: ${HWANBEE_DOMAIN}/api/exchange/v1/rate
   exchange-deal-url: ${HWANBEE_DOMAIN}/exchange/deal
-
-server:
-  port: 8070
