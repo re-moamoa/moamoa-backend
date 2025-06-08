@@ -107,7 +107,7 @@ pipeline {
                         git config user.email 'tom990422@gmail.com'
                         git add ${rolloutFilePath}
                         git commit -m 'Update ${env.MODULE_NAME} image version to ${env.BUILD_NUMBER}' || echo '[INFO] Nothing to commit'
-                        git push https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/HBBHBank/kube-manifest.git ${params.BRANCH_NAME}
+                        git push https://${GITHUB_USERNAME}:${GITHUB_TOKEN}@github.com/HBBHBank/kube-manifest.git main
                         """
                     }
                 }
