@@ -52,9 +52,9 @@ pipeline {
         stage('Archive Artifacts') {
             steps {
                 // 아티팩트 경로는 모듈 디렉토리 내부에 있으므로 경로를 올바르게 지정
-                archiveArtifacts artifacts: "${env.MODULE_NAME}/${env.BUILD_ARTIFACT_DIR}/*.jar", // Adjusted path
+                archiveArtifacts artifacts: "${env.BUILD_ARTIFACT_DIR}/*.jar", // Adjusted path
                                  fingerprint: true
-                echo "Artifacts archived: ${env.MODULE_NAME}/${env.BUILD_ARTIFACT_DIR}/*.jar"
+                echo "Artifacts archived: ${env.BUILD_ARTIFACT_DIR}/*.jar"
             }
         }
 
