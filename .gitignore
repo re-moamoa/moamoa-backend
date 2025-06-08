@@ -36,10 +36,6 @@ out/
 ### VS Code ###
 .vscode/
 
-### yml
-application.yml
-secret.yml
-
 ### 환경변수 ###
 .env
 

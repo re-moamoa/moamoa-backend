@@ -1,0 +1,56 @@
+spring:
+  jackson:
+    time-zone: Asia/Seoul
+
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DB}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+  cache:
+    cache-names:
+      - memoryExchangeRates
+      - redisExchangeRates
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+jwt:
+  access-token:
+    expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600} # 1 hour
+  refresh-token:
+    expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800} # 7 days
+  secret: ${JWT_SECRET}
+
+moamoa:
+  datasource:
+    password: ${MOMOA_DB_PASSWORD}
+
+oauth2:
+  client-id: ${OAUTH2_CLIENT_ID}
+  client-secret: ${OAUTH2_CLIENT_SECRET}
+  token-uri: http://${OAUTH_DOMAIN}:9000/oauth2/token
+  redirect-uri: http://${MOMOA_FRONT_DOMAIN}:3000/login/oauth2/code/hwanbee
+
+hwanbee:
+  verification-code-url: ${HWANBEE_DOMAIN}/api/accounts/v1/verification
+  verification-check-url: ${HWANBEE_DOMAIN}/api/accounts/v1/verification/confirm
+  remittance-url: ${HWANBEE_DOMAIN}/api/remittance/test
+  exchange-rates-url: ${HWANBEE_DOMAIN}/api/exchange/v1/rates
+  exchange-rate-url: ${HWANBEE_DOMAIN}/api/exchange/v1/rate
+  exchange-deal-url: ${HWANBEE_DOMAIN}/exchange/deal
+
+server:
+  port: 8070
