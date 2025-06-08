@@ -31,7 +31,7 @@ pipeline {
                 echo "[Orchestrator] GitHub 저장소에서 코드 체크아웃 중..."
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: "*/main"]],
+                    branches: [[name: "*/dev-v2"]],
                     userRemoteConfigs: [[
                         url: "${GITHUB_REPOSITORY_URL}",
                         credentialsId: "${GITHUB_CREDENTIALS_ID}"
@@ -42,7 +42,6 @@ pipeline {
 
         stage('Build Module') {
             steps {
-                // 'src' 디렉토리 안의 해당 모듈 디렉토리로 이동하여 빌드workspace, not in a 'src' subdirectory. If your structure is 'src/account', please revert to 'src/${env.MODULE_NAME}'.
                     sh "chmod +x gradlew"
                     // 모노레포 루트의 gradlew를 사용하기 위해 'src' 디렉토리로 이동 후 빌드 명령 실행
                     sh "./gradlew clean build -x test"
@@ -51,8 +50,7 @@ pipeline {
 
         stage('Archive Artifacts') {
             steps {
-                // 아티팩트 경로는 모듈 디렉토리 내부에 있으므로 경로를 올바르게 지정
-                archiveArtifacts artifacts: "${env.BUILD_ARTIFACT_DIR}/*.jar", // Adjusted path
+                archiveArtifacts artifacts: "${env.BUILD_ARTIFACT_DIR}/*.jar",
                                  fingerprint: true
                 echo "Artifacts archived: ${env.BUILD_ARTIFACT_DIR}/*.jar"
             }
