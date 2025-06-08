@@ -45,7 +45,7 @@ pipeline {
                 // 'src' 디렉토리 안의 해당 모듈 디렉토리로 이동하여 빌드workspace, not in a 'src' subdirectory. If your structure is 'src/account', please revert to 'src/${env.MODULE_NAME}'.
                     sh "chmod +x gradlew"
                     // 모노레포 루트의 gradlew를 사용하기 위해 'src' 디렉토리로 이동 후 빌드 명령 실행
-                    sh "./gradlew :${env.MODULE_NAME}:clean :${env.MODULE_NAME}:build -x test"
+                    sh "./gradlew clean build -x test"
             }
         }
 
