@@ -71,9 +71,7 @@ pipeline {
 
                     echo "Building Docker image: ${fullImageName}"
                     // Dockerfile이 모듈 디렉토리 안에 있으므로 해당 디렉토리에서 Docker 빌드 실행
-                    dir("${env.MODULE_NAME}") { // Adjusted path
-                        sh "docker build -t ${fullImageName} -t ${latestImageName} ."
-                    }
+                    sh "docker build -t ${fullImageName} -t ${latestImageName} ."
 
                     echo "Pushing Docker image: ${fullImageName} and ${latestImageName}"
                     sh "docker push ${fullImageName}"
