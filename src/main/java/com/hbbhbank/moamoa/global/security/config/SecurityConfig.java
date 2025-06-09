@@ -103,7 +103,7 @@ public class SecurityConfig {
     ));
 
     config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
-    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
     config.setExposedHeaders(List.of("Authorization")); // 필요 시
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
