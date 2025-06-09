@@ -26,6 +26,8 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -91,15 +93,22 @@ public class SecurityConfig {
   @Bean
   public CorsConfigurationSource corsConfigurationSource() {
     CorsConfiguration config = new CorsConfiguration();
-    config.setAllowCredentials(true); // 인증 정보를 포함한 요청 허용 (예: Authorization 헤더)
-    config.addAllowedOriginPattern("*"); // 모든 도메인 허용 (개발 환경 전용, 운영 시 특정 도메인만 허용 권장)
-    config.addAllowedHeader("*"); // 모든 헤더 허용
-    config.addAllowedMethod("*"); // 모든 HTTP 메서드 허용 (GET, POST, PUT 등)
+    config.setAllowCredentials(true); // 인증 포함 요청 허용
+
+    // 운영 환경과 개발 환경 각각 명시
+    config.setAllowedOrigins(List.of(
+      "https://moamoa-front.vercel.app",
+      "http://localhost:3000"
+    ));
+
+    config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
+    config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); // 명시적 메서드 허용
 
     UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-    source.registerCorsConfiguration("/**", config); // 모든 경로에 위 설정 적용
-    return source; // Spring Security에서 사용할 CORS 정책 반환
+    source.registerCorsConfiguration("/**", config);
+    return source;
   }
+
 
   @Bean
   public PasswordEncoder passwordEncoder() {
