@@ -29,9 +29,9 @@ spring:
 
 jwt:
   access-token:
-    expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:3600} # 1 hour
+    expiration: ${JWT_ACCESS_TOKEN_EXPIRATION:99999999} # 1 hour
   refresh-token:
-    expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:604800} # 7 days
+    expiration: ${JWT_REFRESH_TOKEN_EXPIRATION:99999999} # 7 days
   secret: ${JWT_SECRET}
 
 moamoa:
