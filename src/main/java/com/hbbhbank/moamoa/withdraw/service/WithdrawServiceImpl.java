@@ -74,7 +74,6 @@ public class WithdrawServiceImpl implements WithdrawService {
         .currency(userWallet.getCurrency().getName())
         .description("포인트 환불")
         .partnerTransactionId("moamoa-withdraw-" + saved.getId())
-        .requestedAt(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
         .build(),
       accessToken
     );
