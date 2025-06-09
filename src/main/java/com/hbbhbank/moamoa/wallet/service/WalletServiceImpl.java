@@ -97,7 +97,7 @@ public class WalletServiceImpl implements WalletService {
 
     // 사용자 및 통화 정보 조회
     userService.getByIdOrThrow(userId);
-    Currency currency = currencyService.getByCodeOrThrow(data.accountStatus());
+    Currency currency = currencyService.getByCodeOrThrow(data.currencyCode());
 
     // 중복된 환비 계좌가 없을 경우 새로 저장
     HwanbeeAccountLink accountLink = hwanbeeLinkRepository
@@ -112,7 +112,7 @@ public class WalletServiceImpl implements WalletService {
       });
 
     // 이미 동일 통화 지갑이 있으면 예외
-    if (walletRepository.existsByUserIdAndCurrencyCode(userId, data.accountStatus())) {
+    if (walletRepository.existsByUserIdAndCurrencyCode(userId, data.currencyCode())) {
       throw new BaseException(WalletErrorCode.DUPLICATE_WALLET);
     }
 
