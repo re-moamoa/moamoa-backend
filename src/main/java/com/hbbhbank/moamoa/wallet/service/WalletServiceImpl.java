@@ -77,6 +77,8 @@ public class WalletServiceImpl implements WalletService {
     User user = userRepository.findById(userId)
       .orElseThrow(() -> new BaseException(UserErrorCode.USER_NOT_FOUND));
 
+    String accessToken = oAuth2TokenClient.ensureAccessToken(user);
+
     // 가장 최근의 인증 요청(transactionId) 가져오기
     AccountVerificationRequest request = accountVerificationRequestRepository
       .findTopByUser_IdOrderByCreatedAtDesc(userId)
@@ -86,7 +88,7 @@ public class WalletServiceImpl implements WalletService {
     VerificationCheckRequestDto checkRequest = new VerificationCheckRequestDto(request.getTransactionId(), inputCode);
 
     // access token이 없거나 만료되었으면 발급
-    VerificationCheckResponseDto checkResponse = hwanbeeAccountClient.verifyInputCode(checkRequest);
+    VerificationCheckResponseDto checkResponse = hwanbeeAccountClient.verifyInputCode(checkRequest, accessToken);
 
     VerificationAccountDataDto data = checkResponse.data();
     if (data == null || !Boolean.TRUE.equals(data.verified())) {
@@ -145,7 +147,7 @@ public class WalletServiceImpl implements WalletService {
     VerificationCheckRequestDto checkRequest = new VerificationCheckRequestDto(request.getTransactionId(), inputCode);
 
     // access token이 없거나 만료되었으면 발급
-    VerificationCheckResponseDto checkResponse = hwanbeeAccountClient.verifyInputCode(checkRequest);
+    VerificationCheckResponseDto checkResponse = hwanbeeAccountClient.verifyInputCode(checkRequest, inputCode);
 
     VerificationAccountDataDto data = checkResponse.data();
     if (data == null || !Boolean.TRUE.equals(data.verified())) {

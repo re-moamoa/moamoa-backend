@@ -32,6 +32,6 @@ public interface HwanbeeAccountClient {
    * @return 인증 검증 결과 응답 객체 (성공 여부, 외부 계좌 ID 등)
    * @throws com.hbbhbank.moamoa.global.exception.BaseException 인증 실패 또는 통신 실패 시 예외 발생
    */
-  VerificationCheckResponseDto verifyInputCode(VerificationCheckRequestDto dto);
+  VerificationCheckResponseDto verifyInputCode(VerificationCheckRequestDto dto, String accessToken);
 
 }

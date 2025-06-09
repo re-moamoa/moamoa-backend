@@ -35,8 +35,9 @@ public class HwanbeeAccountClientImpl implements HwanbeeAccountClient{
   }
 
   @Override
-  public VerificationCheckResponseDto verifyInputCode(VerificationCheckRequestDto req) {
+  public VerificationCheckResponseDto verifyInputCode(VerificationCheckRequestDto req, String accessToken) {
     HttpHeaders headers = new HttpHeaders();
+    headers.setBearerAuth(accessToken);
     headers.setContentType(MediaType.APPLICATION_JSON);
     HttpEntity<VerificationCheckRequestDto> request = new HttpEntity<>(req, headers);
 
