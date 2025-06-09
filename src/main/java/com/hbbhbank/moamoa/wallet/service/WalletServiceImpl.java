@@ -106,7 +106,7 @@ public class WalletServiceImpl implements WalletService {
         HwanbeeAccountLink link = HwanbeeAccountLink.create(
           userId,
           data.accountNumber(), // 환비 계좌 정보
-          data.accountStatus()
+          data.currencyCode()
         );
         return hwanbeeLinkRepository.save(link);
       });
@@ -158,7 +158,7 @@ public class WalletServiceImpl implements WalletService {
 
     // 사용자 및 통화 정보 조회
     userService.getByIdOrThrow(userId);
-    Currency currency = currencyService.getByCodeOrThrow(data.accountStatus());
+    Currency currency = currencyService.getByCodeOrThrow(data.currencyCode());
 
     // 중복된 환비 계좌가 없을 경우 새로 저장
     HwanbeeAccountLink accountLink = hwanbeeLinkRepository
@@ -167,7 +167,7 @@ public class WalletServiceImpl implements WalletService {
         HwanbeeAccountLink link = HwanbeeAccountLink.create(
           userId,
           data.accountNumber(), // 환비 계좌 정보
-          data.accountStatus()
+          data.currencyCode()
         );
         return hwanbeeLinkRepository.save(link);
       });
