@@ -44,7 +44,7 @@ public class PaymentServiceImpl implements PaymentService {
 
     // 2. uuid 및 링크 생성
     String uuid = UUID.randomUUID().toString();
-    String qrLink = "http://localhost:8080/api/v1/payments/use/" + uuid;
+    String qrLink = "https://moamoa.hwanbee.site/api/v1/payments/use/" + uuid;
 
     // 3. QR 이미지 생성
     byte[] imageBytes = QRCodeUtil.generateQRCodeImage(qrLink);
