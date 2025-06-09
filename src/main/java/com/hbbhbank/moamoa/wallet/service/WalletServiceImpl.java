@@ -125,7 +125,7 @@ public class WalletServiceImpl implements WalletService {
     // 저장
     walletRepository.save(wallet);
 
-    return CreateWalletResponseDto.from("accountStatus");
+    return CreateWalletResponseDto.from(data.accountNumber());
   }
 
   /**
