@@ -4,11 +4,8 @@ import com.hbbhbank.moamoa.external.client.HwanbeeExchangeClient;
 import com.hbbhbank.moamoa.external.dto.response.exchange.ExchangeRateResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-
-import java.time.Duration;
 
 @Slf4j
 @Component
@@ -16,21 +13,19 @@ import java.time.Duration;
 public class ExchangeRateScheduler {
 
   private final HwanbeeExchangeClient hwanbeeExchangeClient;
-  private final RedisTemplate<String, Object> redisTemplate;
-
-  private static final String CACHE_KEY = "exchangeRates::daily";
 
   /**
-   * 매 정각마다 외부 API 호출 → Redis 캐시 갱신
+   * 인메모리 캐시를 선제적으로 채우기 위한 스케줄러
+   * - @Cacheable 이 붙은 메서드를 강제로 호출
    */
-  @Scheduled(cron = "0 0 * * * *") // 매 정시 실행
-  public void refreshExchangeRatesInRedis() {
+  @Scheduled(cron = "0 0 * * * *") // 매 정각
+  public void preloadExchangeRatesToMemoryCache() {
     try {
-      ExchangeRateResponseDto dto = hwanbeeExchangeClient.getAllExchangeRatesV3(); // API 호출
-      redisTemplate.opsForValue().set(CACHE_KEY, dto, Duration.ofHours(1)); // TTL 1시간 설정
-      log.info("[스케줄러] 환율 캐시 갱신 성공: {}", CACHE_KEY);
+      ExchangeRateResponseDto dto = hwanbeeExchangeClient.getAllExchangeRatesV3(); // @Cacheable method
+      log.info("[스케줄러] 인메모리 환율 캐시 갱신 완료 (dataSize={})",
+        dto.data() != null ? dto.data().size() : -1);
     } catch (Exception e) {
-      log.error("[스케줄러] 환율 캐시 갱신 실패", e);
+      log.error("[스케줄러] 인메모리 환율 캐시 갱신 실패", e);
     }
   }
 }
