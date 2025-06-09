@@ -41,8 +41,8 @@ moamoa:
 oauth2:
   client-id: ${OAUTH2_CLIENT_ID}
   client-secret: ${OAUTH2_CLIENT_SECRET}
-  token-uri: http://${OAUTH_DOMAIN}:9000/oauth2/token
-  redirect-uri: http://${MOMOA_FRONT_DOMAIN}:3000/login/oauth2/code/hwanbee
+  token-uri: ${OAUTH_DOMAIN}/oauth2/token
+  redirect-uri: ${MOMOA_FRONT_DOMAIN}/login/oauth2/code/hwanbee
 
 hwanbee:
   verification-code-url: ${HWANBEE_DOMAIN}/api/accounts/v1/verification
