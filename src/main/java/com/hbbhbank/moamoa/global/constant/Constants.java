@@ -15,7 +15,7 @@ public final class Constants {
   public static final String PREFIX_AUTH = "Authorization";
 
   public static final List<String> NOT_NEED_AUTH = List.of(
-    "/",
+    "/main",
     "/api/v1/auth/signup",
     "/api/v1/auth/login",
     "/api/v1/auth/jwt/reissue"

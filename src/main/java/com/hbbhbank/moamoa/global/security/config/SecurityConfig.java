@@ -98,7 +98,7 @@ public class SecurityConfig {
     config.setAllowCredentials(true);
 
     config.setAllowedOriginPatterns(List.of(
-      "https://*.vercel.app",
+      "https://moamoa-front.vercel.app",
       "http://localhost:3000"
     ));
 
