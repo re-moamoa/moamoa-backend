@@ -11,6 +11,5 @@ public record HwanbeeRemittanceRequestDto(
   BigDecimal amount,
   String currency,
   String description,
-  String partnerTransactionId,
-  String requestedAt
+  String partnerTransactionId
 ) {}

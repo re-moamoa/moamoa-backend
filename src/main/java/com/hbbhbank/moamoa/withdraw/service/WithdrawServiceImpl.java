@@ -33,7 +33,7 @@ public class WithdrawServiceImpl implements WithdrawService {
   private final UserRepository userRepository;
   private final HwanbeeLinkRepository hwanbeeLinkRepository;
 
-  private static final String MOAMOA_CORPORATE_ACCOUNT = "130-999-888888";
+  private static final String MOAMOA_CORPORATE_ACCOUNT = "15002-402-000009";
 
   @Override
   @Transactional

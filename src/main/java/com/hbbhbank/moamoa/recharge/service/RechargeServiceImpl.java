@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -62,8 +63,7 @@ public class RechargeServiceImpl implements RechargeService {
         .amount(dto.amount())
         .currency(wallet.getCurrency().getCode())
         .description("모아모아 포인트 충전")
-        .partnerTransactionId("tx-" + wallet.getWalletNumber() + "-" + ZonedDateTime.now().toInstant().toEpochMilli())
-        .requestedAt(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+        .partnerTransactionId("tx-" + UUID.randomUUID())
         .build(),
       accessToken
     );
