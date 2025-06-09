@@ -35,7 +35,7 @@ public class RechargeServiceImpl implements RechargeService {
   private final HwanbeeLinkRepository hwanbeeLinkRepository;
   private final CurrencyService currencyService;
 
-  private static final String MOAMOA_CORPORATE_ACCOUNT = "15002-129-000010";
+  private static final String MOAMOA_CORPORATE_ACCOUNT = "15002-402-000009";
 
   @Override
   public RechargeResponseDto charge(RechargeRequestDto dto) {
@@ -57,12 +57,12 @@ public class RechargeServiceImpl implements RechargeService {
     // 환비 송금 요청
     hwanbeeRemittanceClient.remitFromUserAccount(
       HwanbeeRemittanceRequestDto.builder()
-        .fromAccountNumber("15002-847-000002")
+        .fromAccountNumber(dto.hwanbeeAccountNumber())
         .toAccountNumber(MOAMOA_CORPORATE_ACCOUNT)
         .amount(dto.amount())
         .currency(wallet.getCurrency().getCode())
         .description("모아모아 포인트 충전")
-        .partnerTransactionId("tx-20250606-0006")
+        .partnerTransactionId("tx-" + wallet.getWalletNumber() + "-" + ZonedDateTime.now().toInstant().toEpochMilli())
         .requestedAt(ZonedDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME))
         .build(),
       accessToken
@@ -86,3 +86,4 @@ public class RechargeServiceImpl implements RechargeService {
     );
   }
 }
+
