@@ -1,0 +1,10 @@
+spring:
+  profiles: test
+  cache:
+    type: simple
+
+
+  # 테스트에서는 WireMock이 8089 포트에 떠 있다고 가정
+  hwanbee:
+    api:
+      exchange-rates-url: http://localhost:8089/api/external/exchange/rates

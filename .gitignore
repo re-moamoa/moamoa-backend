@@ -36,5 +36,8 @@ out/
 ### VS Code ###
 .vscode/
 
-### application.yml
-application.yml
+### 환경변수 ###
+.env
+
+### sql ###
+/src/main/resources/sql/*.sql
