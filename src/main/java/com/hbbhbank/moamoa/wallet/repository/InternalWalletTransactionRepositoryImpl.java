@@ -30,27 +30,6 @@ public class InternalWalletTransactionRepositoryImpl implements InternalWalletTr
   }
 
   @Override
-  public List<InternalWalletTransaction> findByWalletAndPeriods(Wallet wallet, List<SettlementSharePeriod> periods) {
-    QInternalWalletTransaction tx = QInternalWalletTransaction.internalWalletTransaction;
-
-    // 공유 기간에 해당하는 transactedAt 조건
-    BooleanBuilder periodBuilder = new BooleanBuilder();
-    for (SettlementSharePeriod period : periods) {
-      LocalDateTime end = period.getStoppedAt() != null ? period.getStoppedAt() : LocalDateTime.now();
-      periodBuilder.or(tx.transactedAt.between(period.getStartedAt(), end));
-    }
-
-    // 지갑이 공유 지갑(방장 지갑)인 경우만 포함
-    BooleanBuilder walletCondition = new BooleanBuilder()
-      .and(tx.wallet.eq(wallet)); // 오직 보낸/받은 주체가 방장일 때만 포함
-
-    return queryFactory
-      .selectFrom(tx)
-      .where(walletCondition.and(periodBuilder))
-      .fetch();
-  }
-
-  @Override
   public Optional<BigDecimal> sumAmountByWalletAndTypesAndPeriods(
     Wallet wallet,
     List<WalletTransactionType> types,

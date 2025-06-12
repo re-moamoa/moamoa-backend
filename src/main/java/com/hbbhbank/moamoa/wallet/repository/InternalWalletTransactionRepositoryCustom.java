@@ -12,7 +12,7 @@ import java.util.Optional;
 
 public interface InternalWalletTransactionRepositoryCustom {
   List<InternalWalletTransaction> findAllByPredicate(Predicate predicate);
-  List<InternalWalletTransaction> findByWalletAndPeriods(Wallet wallet, List<SettlementSharePeriod> periods);
+
   Optional<BigDecimal> sumAmountByWalletAndTypesAndPeriods(Wallet wallet, List<WalletTransactionType> type, Predicate predicate);
 
   List<InternalWalletTransaction> findSharedOutgoingTransactions(Wallet sharedWallet, List<SettlementSharePeriod> periods);

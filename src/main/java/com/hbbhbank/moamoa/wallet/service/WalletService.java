@@ -26,12 +26,6 @@ public interface WalletService {
   // 사용자 별 모든 지갑 목록 조회
   List<SearchWalletResponseDto> getAllWalletsByUser();
 
-  // 지갑 번호로 지갑 조회
-  Wallet getWalletByNumberOrThrow(String WalletNumber);
-
-  // 환비 계좌 목록 조회
-  List<BankAccountResponseDto> getBankAccountsByUser();
-
   // 지갑 번호와 통화 코드로 지갑 조회 및 통화 검증
   Wallet getWalletByNumberAndVerifyCurrency(String walletNumber, String currencyCode);
 }

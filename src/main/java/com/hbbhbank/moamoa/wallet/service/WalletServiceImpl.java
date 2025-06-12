@@ -176,23 +176,6 @@ public class WalletServiceImpl implements WalletService {
   }
 
   /**
-   * 연결된 환비 계좌 목록 조회
-   */
-  @Override
-  public List<BankAccountResponseDto> getBankAccountsByUser() {
-    // 1) 현재 로그인한 사용자 ID 조회
-    Long userId = userService.getCurrentUserId();
-
-    // 2) 저장된 환비 계좌 링크 전체 조회
-    List<HwanbeeAccountLink> links = hwanbeeLinkRepository.findByUserId(userId);
-
-    // 3) DTO 변환 후 반환
-    return links.stream()
-      .map(BankAccountResponseDto::from)
-      .collect(Collectors.toList());
-  }
-
-  /**
    * 사용자별 통화 코드로 지갑 조회
    */
   @Override
@@ -216,15 +199,6 @@ public class WalletServiceImpl implements WalletService {
     return walletRepository.findAllByUser(userId).stream()
       .map(SearchWalletResponseDto::from)
       .collect(Collectors.toList());
-  }
-
-  /**
-   * 지갑 번호로 지갑 조회
-   */
-  @Override
-  public Wallet getWalletByNumberOrThrow(String walletNumber) {
-    return walletRepository.findByWalletNumber(walletNumber)
-      .orElseThrow(() -> BaseException.type(WalletErrorCode.NOT_FOUND_WALLET));
   }
 
   /**

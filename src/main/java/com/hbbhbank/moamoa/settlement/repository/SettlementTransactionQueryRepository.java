@@ -10,11 +10,6 @@ import java.util.List;
 public interface SettlementTransactionQueryRepository {
 
   /**
-   * 내부 + 외부 거래 총합 (기존 방식)
-   */
-  BigDecimal sumByGroupSharePeriods(SettlementGroup group);
-
-  /**
    * 공유 주기 내 출금 거래 총합 계산
    */
   BigDecimal sumOnlyExpensesByPeriods(Wallet wallet, List<SettlementSharePeriod> periods);

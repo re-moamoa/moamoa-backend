@@ -8,5 +8,4 @@ import java.util.List;
 
 public interface ExternalWalletTransactionRepository extends JpaRepository<ExternalWalletTransaction, Long>, ExternalWalletTransactionRepositoryCustom {
 
-  List<ExternalWalletTransaction> findByWallet(Wallet wallet);
 }

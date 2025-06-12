@@ -23,47 +23,6 @@ public class SettlementTransactionQueryRepositoryImpl implements SettlementTrans
 
   private final InternalWalletTransactionRepository internalWalletTransactionRepository;
   private final SettlementSharePeriodRepository sharePeriodRepository;
-  private final JPAQueryFactory queryFactory;
-
-  @Override
-  public BigDecimal sumByGroupSharePeriods(SettlementGroup group) {
-    List<SettlementSharePeriod> periods = sharePeriodRepository.findAllByGroup(group);
-    Wallet wallet = group.getReferencedWallet();
-
-    // 공유 지갑에서 발생한 출금 거래만 필터링
-    List<InternalWalletTransaction> outgoingTx = findSharedOutgoingTransactions(wallet, periods);
-
-    return outgoingTx.stream()
-      .map(InternalWalletTransaction::getAmount)
-      .reduce(BigDecimal.ZERO, BigDecimal::add);
-  }
-
-  private List<InternalWalletTransaction> findSharedOutgoingTransactions(Wallet sharedWallet, List<SettlementSharePeriod> periods) {
-    QInternalWalletTransaction tx = QInternalWalletTransaction.internalWalletTransaction;
-
-    BooleanBuilder periodBuilder = new BooleanBuilder();
-    for (SettlementSharePeriod period : periods) {
-      LocalDateTime end = period.getStoppedAt() != null ? period.getStoppedAt() : LocalDateTime.now();
-      periodBuilder.or(tx.transactedAt.between(period.getStartedAt(), end));
-    }
-
-    BooleanBuilder typeCondition = new BooleanBuilder()
-      .and(tx.type.in(
-        List.of(
-          WalletTransactionType.QR_PAYMENT,
-          WalletTransactionType.TRANSFER_OUT,
-          WalletTransactionType.SETTLEMENT_SEND
-        )
-      ));
-
-    BooleanBuilder walletCondition = new BooleanBuilder()
-      .and(tx.wallet.eq(sharedWallet));
-
-    return queryFactory
-      .selectFrom(tx)
-      .where(walletCondition.and(typeCondition).and(periodBuilder))
-      .fetch();
-  }
 
   public BigDecimal sumOnlyExpensesByPeriods(Wallet wallet, List<SettlementSharePeriod> periods) {
     if (periods.isEmpty()) return BigDecimal.ZERO;

@@ -7,5 +7,4 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface InternalWalletTransactionRepository extends JpaRepository<InternalWalletTransaction, Long>, InternalWalletTransactionRepositoryCustom {
-  List<InternalWalletTransaction> findByWallet(Wallet wallet);
 }
