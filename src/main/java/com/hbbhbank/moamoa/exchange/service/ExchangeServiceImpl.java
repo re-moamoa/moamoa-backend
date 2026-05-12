@@ -28,11 +28,12 @@ public class ExchangeServiceImpl implements ExchangeService {
     return hwanbeeExchangeClient.getAllExchangeRatesV1();
   }
 
-  @Override
-  public ExchangeRateResponseDto getAllExchangeRatesV2() {
-    log.info("[환율 조회] 모든 환율 요청 실행 (Redis 캐시 사용)");
-    return hwanbeeExchangeClient.getAllExchangeRatesV2();
-  }
+  // Redis 제거로 인한 주석 처리
+//  @Override
+//  public ExchangeRateResponseDto getAllExchangeRatesV2() {
+//    log.info("[환율 조회] 모든 환율 요청 실행 (Redis 캐시 사용)");
+//    return hwanbeeExchangeClient.getAllExchangeRatesV2();
+//  }
 
   @Override
   public ExchangeRateResponseDto getAllExchangeRatesV3() {

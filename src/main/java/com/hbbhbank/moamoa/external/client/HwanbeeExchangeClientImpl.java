@@ -50,27 +50,28 @@ public class HwanbeeExchangeClientImpl implements HwanbeeExchangeClient {
     return response.getBody();
   }
 
-  @Cacheable(cacheResolver="redisCacheResolver", value = "redisExchangeRates", key = "'dailyRates'")
-  @Override
-  public ExchangeRateResponseDto getAllExchangeRatesV2() {
-    String accessToken = ensureValidAccessToken();
-    String url = hwanbeeApiEndpoints.getExchangeRatesUrl();
-    log.info("[외부 호출] 모든 환율 조회 API (Redis 캐시 사용): {}", url);
-
-    HttpHeaders headers = new HttpHeaders();
-    headers.setBearerAuth(accessToken);
-    HttpEntity<Void> request = new HttpEntity<>(headers);
-
-    ResponseEntity<ExchangeRateResponseDto> response = hwanbeeRestTemplate.exchange(
-      url,
-      HttpMethod.GET,
-      request,
-      ExchangeRateResponseDto.class
-    );
-
-    log.info("[응답 수신] 모든 환율 - 상태 (Redis 캐시 사용): {}", response.getStatusCode());
-    return response.getBody();
-  }
+  // Redis 제거로 인한 주석 처리
+//  @Cacheable(cacheResolver="redisCacheResolver", value = "redisExchangeRates", key = "'dailyRates'")
+//  @Override
+//  public ExchangeRateResponseDto getAllExchangeRatesV2() {
+//    String accessToken = ensureValidAccessToken();
+//    String url = hwanbeeApiEndpoints.getExchangeRatesUrl();
+//    log.info("[외부 호출] 모든 환율 조회 API (Redis 캐시 사용): {}", url);
+//
+//    HttpHeaders headers = new HttpHeaders();
+//    headers.setBearerAuth(accessToken);
+//    HttpEntity<Void> request = new HttpEntity<>(headers);
+//
+//    ResponseEntity<ExchangeRateResponseDto> response = hwanbeeRestTemplate.exchange(
+//      url,
+//      HttpMethod.GET,
+//      request,
+//      ExchangeRateResponseDto.class
+//    );
+//
+//    log.info("[응답 수신] 모든 환율 - 상태 (Redis 캐시 사용): {}", response.getStatusCode());
+//    return response.getBody();
+//  }
 
   @Cacheable(value = "memoryExchangeRates", key = "'dailyRates'")
   @Override

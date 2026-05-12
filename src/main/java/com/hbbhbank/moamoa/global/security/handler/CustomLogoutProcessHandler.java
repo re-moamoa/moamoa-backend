@@ -43,7 +43,7 @@ public class CustomLogoutProcessHandler implements LogoutHandler {
     // Claims에서 사용자 ID를 꺼냄 (Long 타입으로 저장되었다고 가정)
     Long userId = claims.get(Constants.CLAIM_USER_ID, Long.class);
 
-    // 해당 사용자에 대한 RefreshToken 삭제 (Redis 등에서)
+    // 해당 사용자에 대한 RefreshToken 삭제 (DB에서)
     jwtTokenService.deleteRefreshToken(userId);
 
     // 로그 기록 (선택) → 이후 모니터링이나 감사 로그로 사용 가능

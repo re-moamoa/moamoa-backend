@@ -12,10 +12,11 @@ public interface HwanbeeExchangeClient {
    */
   ExchangeRateResponseDto getAllExchangeRatesV1();
 
-  /**
-   * 모든 환율 정보를 조회합니다. (Redis 캐시 사용)
-   */
-  ExchangeRateResponseDto getAllExchangeRatesV2();
+  // Redis 제거로 인한 주석 처리
+//  /**
+//   * 모든 환율 정보를 조회합니다. (Redis 캐시 사용)
+//   */
+//  ExchangeRateResponseDto getAllExchangeRatesV2();
 
   /**
    * 모든 환율 정보를 조회합니다. (인메모리 캐시 사용)

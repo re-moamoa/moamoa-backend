@@ -41,3 +41,8 @@ out/
 
 ### sql ###
 /src/main/resources/sql/*.sql
+
+docs/
+.claude/
+
+secret.yml
