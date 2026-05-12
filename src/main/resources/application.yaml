@@ -38,6 +38,15 @@ oauth2:
   token-uri: ${OAUTH_DOMAIN}/oauth2/token
   redirect-uri: ${MOMOA_FRONT_DOMAIN}/login/oauth2/code/hwanbee
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
 hwanbee:
   verification-code-url: ${HWANBEE_DOMAIN}/api/accounts/v1/verification
   verification-check-url: ${HWANBEE_DOMAIN}/api/accounts/v1/verification/confirm

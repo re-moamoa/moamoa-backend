@@ -18,7 +18,8 @@ public final class Constants {
     "/main",
     "/api/v1/auth/signup",
     "/api/v1/auth/login",
-    "/api/v1/auth/jwt/reissue"
+    "/api/v1/auth/jwt/reissue",
+    "/actuator/health"
   );
 
   public static final String MOAMOA_ACCOUNT = "15002-402-000009"; // 모아모아 법인 계좌 번호
