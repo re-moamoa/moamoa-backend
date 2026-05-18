@@ -77,19 +77,35 @@ public class PaymentServiceImpl implements PaymentService {
 
     req.validate();
 
-    Wallet sellerWallet = qrImage.getWallet();
-    Wallet buyerWallet = walletRepository.findByUserIdAndCurrencyCode(buyerUserId, req.currencyCode())
+    // 락 순서를 ID 오름차순으로 고정하여 데드락 방지
+    // 두 지갑을 한 번의 쿼리로 PESSIMISTIC_WRITE 락과 함께 조회
+    String sellerWalletNumber = qrImage.getWallet().getWalletNumber();
+    Wallet tempBuyerWallet = walletRepository.findByUserIdAndCurrencyCode(buyerUserId, req.currencyCode())
+      .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
+    String buyerWalletNumber = tempBuyerWallet.getWalletNumber();
+
+    if (sellerWalletNumber.equals(buyerWalletNumber)) {
+      throw new BaseException(PaymentErrorCode.SELF_PAYMENT_NOT_ALLOWED);
+    }
+
+    List<Wallet> lockedWallets = walletRepository.findByWalletNumberForUpdateV2(
+      List.of(buyerWalletNumber, sellerWalletNumber)
+    );
+
+    Wallet buyerWallet = lockedWallets.stream()
+      .filter(w -> w.getWalletNumber().equals(buyerWalletNumber))
+      .findFirst()
+      .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
+
+    Wallet sellerWallet = lockedWallets.stream()
+      .filter(w -> w.getWalletNumber().equals(sellerWalletNumber))
+      .findFirst()
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
     BigDecimal amount = req.amount();
 
-    if (buyerWallet.getBalance().compareTo(amount) < 0) {
-      throw new BaseException(WalletErrorCode.INSUFFICIENT_BALANCE);
-    }
-
     buyerWallet.decreaseBalance(amount);
     sellerWallet.increaseBalance(amount);
-    walletRepository.saveAll(List.of(buyerWallet, sellerWallet));
 
     internalWalletTransactionRepository.save(
       InternalWalletTransaction.create(
