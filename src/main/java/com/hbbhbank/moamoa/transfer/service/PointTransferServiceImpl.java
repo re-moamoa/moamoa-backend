@@ -42,14 +42,12 @@ public class PointTransferServiceImpl implements PointTransferService {
       throw new BaseException(TransferErrorCode.CURRENCY_MISMATCH);
     }
 
-    // 잔액 부족 시 차단
-    if (fromWallet.getBalance().compareTo(dto.amount()) < 0) {
+    // DB 원자적 UPDATE로 잔액 차감 — Check-Then-Act 안티패턴 제거
+    int updatedRows = walletRepository.decreaseBalanceAtomically(fromWallet.getId(), dto.amount());
+    if (updatedRows == 0) {
       throw new BaseException(TransferErrorCode.INSUFFICIENT_BALANCE);
     }
-
-    // 금액 이동
-    fromWallet.decreaseBalance(dto.amount());
-    toWallet.increaseBalance(dto.amount());
+    walletRepository.increaseBalanceAtomically(toWallet.getId(), dto.amount());
 
     // 거래 기록 저장
     InternalWalletTransaction transaction = InternalWalletTransaction.create(
@@ -108,14 +106,12 @@ public class PointTransferServiceImpl implements PointTransferService {
     Wallet fromWallet = dto.fromWalletNumber().equals(first.getWalletNumber()) ? first : second;
     Wallet toWallet   = fromWallet == first ? second : first;
 
-    // 5) 잔액 부족 체크
-    if (fromWallet.getBalance().compareTo(dto.amount()) < 0) {
+    // 5) DB 원자적 UPDATE로 잔액 차감 — Check-Then-Act 안티패턴 제거 (비관적 락은 유지)
+    int updatedRows = walletRepository.decreaseBalanceAtomically(fromWallet.getId(), dto.amount());
+    if (updatedRows == 0) {
       throw new BaseException(TransferErrorCode.INSUFFICIENT_BALANCE);
     }
-
-    // 6) 금액 이동 (위에 락 걸었으니 안전)
-    fromWallet.decreaseBalance(dto.amount());
-    toWallet.increaseBalance(dto.amount());
+    walletRepository.increaseBalanceAtomically(toWallet.getId(), dto.amount());
 
     // 7) 거래 기록 저장
     walletTransactionRepository.save(InternalWalletTransaction.create(
@@ -174,14 +170,12 @@ public class PointTransferServiceImpl implements PointTransferService {
       ? first : second;
     Wallet toWallet   = fromWallet == first ? second : first;
 
-    // 6) 잔액 충분 여부 (→ 이 balance 는 락 시점의 '진짜' 최신값)
-    if (fromWallet.getBalance().compareTo(dto.amount()) < 0) {
+    // 6) DB 원자적 UPDATE로 잔액 차감 — Check-Then-Act 안티패턴 제거 (비관적 락은 유지)
+    int updatedRows = walletRepository.decreaseBalanceAtomically(fromWallet.getId(), dto.amount());
+    if (updatedRows == 0) {
       throw new BaseException(TransferErrorCode.INSUFFICIENT_BALANCE);
     }
-
-    // 7) 금액 이동
-    fromWallet.decreaseBalance(dto.amount());
-    toWallet.increaseBalance(dto.amount());
+    walletRepository.increaseBalanceAtomically(toWallet.getId(), dto.amount());
 
     // 8) 거래 기록 저장 (double‐entry)
     walletTransactionRepository.save(InternalWalletTransaction.create(

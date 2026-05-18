@@ -206,9 +206,12 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
         Wallet to = tx.getActualTransaction().getCounterWallet();   // 수신자(방장)
         BigDecimal amount = tx.getAmount();
 
-        // 잔액 되돌리기
-        to.decreaseBalance(amount);
-        from.increaseBalance(amount);
+        // DB 원자적 UPDATE로 잔액 되돌리기 — Check-Then-Act 안티패턴 제거
+        int updatedRows = walletRepository.decreaseBalanceAtomically(to.getId(), amount);
+        if (updatedRows == 0) {
+          throw new BaseException(WalletErrorCode.INSUFFICIENT_BALANCE);
+        }
+        walletRepository.increaseBalanceAtomically(from.getId(), amount);
 
         // 환불 트랜잭션 생성
         InternalWalletTransaction refundSend = InternalWalletTransaction.create(
@@ -337,14 +340,12 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       .findFirst()
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
-    // 락 시점의 최신 잔액으로 부족 여부 재확인
-    if (fromWallet.getBalance().compareTo(perAmount) < 0) {
+    // 1. DB 원자적 UPDATE로 잔액 차감 — Check-Then-Act 안티패턴 제거 (비관적 락은 유지)
+    int updatedRows = walletRepository.decreaseBalanceAtomically(fromWallet.getId(), perAmount);
+    if (updatedRows == 0) {
       throw new BaseException(SettlementErrorCode.INSUFFICIENT_BALANCE);
     }
-
-    // 1. 실제 이체 수행 (락이 걸린 상태이므로 Lost Update 방지)
-    fromWallet.decreaseBalance(perAmount);
-    toWallet.increaseBalance(perAmount);
+    walletRepository.increaseBalanceAtomically(toWallet.getId(), perAmount);
 
     InternalWalletTransaction tx = InternalWalletTransaction.create(
       fromWallet, toWallet, WalletTransactionType.SETTLEMENT_SEND, WalletTransactionStatus.SUCCESS, perAmount);

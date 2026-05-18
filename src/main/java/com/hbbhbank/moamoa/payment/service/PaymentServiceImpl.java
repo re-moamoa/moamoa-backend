@@ -104,8 +104,12 @@ public class PaymentServiceImpl implements PaymentService {
 
     BigDecimal amount = req.amount();
 
-    buyerWallet.decreaseBalance(amount);
-    sellerWallet.increaseBalance(amount);
+    // DB 원자적 UPDATE로 잔액 차감 — Check-Then-Act 안티패턴 제거 (비관적 락은 유지)
+    int updatedRows = walletRepository.decreaseBalanceAtomically(buyerWallet.getId(), amount);
+    if (updatedRows == 0) {
+      throw new BaseException(WalletErrorCode.INSUFFICIENT_BALANCE);
+    }
+    walletRepository.increaseBalanceAtomically(sellerWallet.getId(), amount);
 
     internalWalletTransactionRepository.save(
       InternalWalletTransaction.create(
