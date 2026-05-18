@@ -68,10 +68,10 @@ public class SettlementTransactionQueryRepositoryImpl implements SettlementTrans
     BigDecimal totalExpense = sumOnlyExpensesByPeriods(wallet, periods);
     BigDecimal totalIncome = sumOnlyIncomeByPeriods(wallet, periods);
 
-    return safeSum(totalExpense, totalIncome);
+    return safeSubtract(totalExpense, totalIncome);
   }
 
-  private BigDecimal safeSum(BigDecimal a, BigDecimal b) {
-    return (a != null ? a : BigDecimal.ZERO).add(b != null ? b : BigDecimal.ZERO);
+  private BigDecimal safeSubtract(BigDecimal a, BigDecimal b) {
+    return (a != null ? a : BigDecimal.ZERO).subtract(b != null ? b : BigDecimal.ZERO);
   }
 }

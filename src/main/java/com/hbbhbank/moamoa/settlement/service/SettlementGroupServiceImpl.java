@@ -257,12 +257,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 2. 그룹 참여자(방장 또는 멤버) 권한 검증
     validateGroupParticipant(group);
 
-    // 3. 해당 그룹의 공유 주기 목록 조회
-    List<SettlementSharePeriod> periods = sharePeriodRepository.findAllByGroup(group);
-    if (periods.isEmpty()) return List.of();
-
-    // 3. 공유 지갑 출금 내역의 총합 계산
-    BigDecimal totalAmount = settlementTransactionQueryRepository.sumOnlyExpensesByPeriods(group.getReferencedWallet(), periods);
+    // 3. 정산 금액 계산 (출금 - 입금, startSettlement/transferToHost와 동일한 계산 로직)
+    BigDecimal totalAmount = settlementTransactionQueryRepository.sumNetSettlementAmount(group);
 
     // 4. 참여자 수 = 멤버 수 + 방장 1명
     int totalParticipantCount = group.getMembers().size() + 1;
