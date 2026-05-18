@@ -294,6 +294,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
    * 동시성 제어:
    * - 여러 멤버가 동시에 호스트 지갑으로 송금할 수 있으므로 PESSIMISTIC_WRITE 락 적용
    * - 두 지갑을 ID 오름차순으로 한 번에 락을 걸어 데드락 방지
+   * - 중복 송금 방지: 비관적 락 획득 이후 재검증 + DB Unique 제약조건(Defense in Depth)
    */
   @Override
   @Transactional
@@ -318,11 +319,6 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     Wallet fromWalletRef = walletRepository.findByUserIdAndCurrency(user.getId(), toWalletRef.getCurrency())
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
-    // 이미 송금한 사용자인지 확인
-    if (settlementTransactionRepository.existsByGroupAndFromUser(group, user)) {
-      throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
-    }
-
     BigDecimal totalAmount = settlementTransactionQueryRepository.sumNetSettlementAmount(group); // 정산 금액 계산
     int totalMemberCount = group.getMembers().size() + 1; // 정산 멤버 수
 
@@ -342,6 +338,12 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     List<Wallet> lockedWallets = walletRepository.findByWalletNumberForUpdateV2(
       List.of(fromWalletRef.getWalletNumber(), toWalletRef.getWalletNumber())
     );
+
+    // 비관적 락 획득 이후 중복 송금 재검증 — Check-Then-Act 레이스 컨디션 방지
+    // DB Unique 제약조건(uk_settlement_transaction_group_user)과 함께 Defense in Depth 적용
+    if (settlementTransactionRepository.existsByGroupAndFromUser(group, user)) {
+      throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
+    }
 
     Wallet fromWallet = lockedWallets.stream()
       .filter(w -> w.getWalletNumber().equals(fromWalletRef.getWalletNumber()))
