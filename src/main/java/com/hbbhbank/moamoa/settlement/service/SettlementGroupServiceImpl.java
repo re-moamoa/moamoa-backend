@@ -568,8 +568,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
   @Override
   @Transactional(readOnly = true)
   public List<SettlementGroupResponseDto> getMyGroups(Long userId) {
-    // 방장이 나인 정산 그룹을 DB에서 조회
-    return groupRepository.findByHostId(userId).stream()
+    // 방장이 나인 정산 그룹을 DB에서 조회 (fetch join으로 N+1 방지)
+    return groupRepository.findByHostIdWithDetails(userId).stream()
       // 각 그룹 엔티티를 DTO로 변환 (isOwner: true 포함)
       .map(group -> SettlementGroupResponseDto.from(group, userId))
       .collect(Collectors.toList());
@@ -581,7 +581,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
   @Override
   @Transactional(readOnly = true)
   public List<SettlementGroupResponseDto> getJoinedGroups(Long userId) {
-    return memberRepository.findAllByUserId(userId).stream()
+    // fetch join으로 그룹·방장·참조지갑·통화를 즉시 로딩하여 N+1 방지
+    return memberRepository.findAllByUserIdWithGroup(userId).stream()
       // SettlementMember → 그룹 가져오기
       .map(SettlementMember::getGroup)
       // null 값 제거 (예: 잘못된 member 참조 등)

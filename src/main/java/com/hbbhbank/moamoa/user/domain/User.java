@@ -9,6 +9,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.DynamicUpdate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -59,6 +60,7 @@ public class User {
   @Column(name = "expires_in")
   private Integer expiresIn;
 
+  @BatchSize(size = 100)
   @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<Wallet> wallets = new ArrayList<>();
 
