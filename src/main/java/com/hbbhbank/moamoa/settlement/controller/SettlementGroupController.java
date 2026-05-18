@@ -87,6 +87,16 @@ public class SettlementGroupController {
   }
 
   /**
+   * 이전 정산 내역 조회 (라운드별)
+   */
+  @GetMapping("/{groupId}/settlement-history")
+  public ResponseEntity<BaseResponse<List<SettlementHistoryResponseDto>>> getSettlementHistory(
+    @PathVariable Long groupId
+  ) {
+    return ResponseEntity.ok(BaseResponse.success(settlementGroupService.getSettlementHistory(groupId)));
+  }
+
+  /**
    * 방장에게 자동 송금
    */
   @PostMapping("/{groupId}/transfer")

@@ -50,6 +50,9 @@ public interface SettlementGroupService {
    * 방장에게 송금 처리
    * - 송금자의 지갑에서 방장의 지갑으로 금액 이전
    * - 거래 내역 기록 및 정산 상태 업데이트
+   * - 모든 멤버 송금 완료 시 정산 완료 처리 (새 그룹은 자동 생성하지 않음)
+   *
+   * @return 모든 멤버의 송금이 완료되었는지 여부
    */
   boolean transferToHost(Long groupId);
 
@@ -58,6 +61,13 @@ public interface SettlementGroupService {
    * - 공유된 거래 총합과 인당 분담 금액 계산
    */
   List<SettlementTransactionResponseDto> getSettlementTransactions(Long groupId);
+
+  /**
+   * 이전 정산 내역 조회
+   * - 라운드별 과거 정산 기록을 조회
+   * - 각 라운드의 총 정산 금액, 1인당 분담 금액, 멤버별 송금 상태를 포함
+   */
+  List<SettlementHistoryResponseDto> getSettlementHistory(Long groupId);
 
   /**
    * 정산 완료 후 그룹 삭제 (모든 멤버가 송금 완료 상태여야 가능)
