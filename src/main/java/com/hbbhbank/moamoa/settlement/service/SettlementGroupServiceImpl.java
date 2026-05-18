@@ -94,22 +94,23 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 2. 초대 코드 시도 횟수 증가
     group.incrementJoinAttemptCount();
 
-    // 3. 초대 코드 만료 여부 확인
-    boolean valid = group.isJoinCodeValid() && group.getJoinAttemptCount() <= 5;
+    // 3. 초대 코드 만료 여부 확인 (만료 시간 + 시도 횟수 검증이 엔티티에 캡슐화됨)
+    boolean valid = group.isJoinCodeValid();
 
-    // 4. 유효한 경우 → 현재 로그인한 사용자를 그룹에 멤버로 등록 (중복 방지)
+    // 4. 유효한 경우 → 현재 로그인한 사용자를 그룹에 멤버로 등록 (중복 방지 + 인원 제한 검증)
     if (valid) {
       User currentUser = userService.getCurrentUser();
 
-      boolean alreadyJoined = group.getMembers().stream()
-        .anyMatch(m -> m.getUser().getId().equals(currentUser.getId()));
+      boolean alreadyJoined = group.hasMember(currentUser.getId());
 
       if (!alreadyJoined) {
+        group.validateMemberLimit();
+
         SettlementMember newMember = SettlementMember.builder()
           .user(currentUser)
           .group(group)
           .build();
-        group.getMembers().add(newMember); // 연관관계 편의 메서드로도 가능
+        group.getMembers().add(newMember);
         memberRepository.save(newMember);
       }
     }
@@ -272,8 +273,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     settlementTransactionRepository.deleteAll(transactions);
 
     // 6. 그룹 상태 초기화 (정산 전 상태로 복원)
+    // startSettlement()에서 이미 비활성화되었으므로 deactivate() 재호출 불필요
     group.markSettlementBefore();
-    group.deactivate();
   }
 
   /**
@@ -517,12 +518,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 2. 방장 권한 검증
     validateHost(group);
 
-    // 3. 정산이 진행 중이라면 삭제 불가
-    if (group.getSettlementStatus() == SettlementStatus.IN_PROGRESS) {
-      throw new BaseException(SettlementErrorCode.SETTLEMENT_IN_PROGRESS);
-    }
+    // 3. 정산이 진행 중이라면 삭제 불가 (도메인 규칙은 엔티티에 캡슐화)
+    group.validateNotInProgress();
 
-    // 3. 그룹 삭제 (cascade 옵션을 통해 자식 엔티티도 삭제됨)
+    // 4. 그룹 삭제 (cascade 옵션을 통해 자식 엔티티도 삭제됨)
     settlementTransactionRepository.deleteAllByGroup(group);
     groupRepository.delete(group);
   }
@@ -541,10 +540,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 3. 정산 상태가 진행 중이면 나갈 수 없음
-    if (group.getSettlementStatus() == SettlementStatus.IN_PROGRESS) {
-      throw new BaseException(SettlementErrorCode.SETTLEMENT_IN_PROGRESS);
-    }
+    // 3. 정산 상태가 진행 중이면 나갈 수 없음 (도메인 규칙은 엔티티에 캡슐화)
+    group.validateNotInProgress();
 
     // 4. 현재 유저가 그룹의 멤버인지 확인
     SettlementMember target = group.getMembers().stream()
@@ -611,11 +608,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 방장 권한 검증
     validateHost(group);
 
-    if (group.getGroupStatus() == GroupStatus.INACTIVE) {
-      throw new BaseException(SettlementErrorCode.ALREADY_INACTIVE);
-    }
-
     // 정산 공유 종료: 현재 열린 주기만 닫음 (과거 주기는 그대로 보존됨)
+    // deactivate() 내부에서 이미 비활성 상태 검증 수행
     group.getSharePeriods().stream()
       .filter(p -> !p.isClosed())
       .forEach(p -> p.stop(LocalDateTime.now()));
@@ -637,11 +631,6 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
 
     // 2. 방장 권한 검증
     validateHost(group);
-
-    // 3. 이미 활성화된 그룹이라면 예외
-    if (group.getGroupStatus() == GroupStatus.ACTIVE) {
-      throw new BaseException(SettlementErrorCode.ALREADY_ACTIVE);
-    }
 
     // 3. 정산 완료 상태라면 다음 정산 라운드를 위해 초기화
     if (group.getSettlementStatus() == SettlementStatus.COMPLETE) {
@@ -693,11 +682,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    boolean isHost = group.getHost().getId().equals(userId);
-    boolean isMember = group.hasMember(userId);
-
-
-    if (!isHost && !isMember && !allowIfJoinCodeValid) {
+    if (!group.isParticipant(userId) && !allowIfJoinCodeValid) {
       throw new BaseException(SettlementErrorCode.NO_ACCESS_TO_GROUP);
     }
 
@@ -760,9 +745,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
    */
   private void validateGroupParticipant(SettlementGroup group) {
     Long currentUserId = userService.getCurrentUserId();
-    boolean isHost = group.getHost().getId().equals(currentUserId);
-    boolean isMember = group.hasMember(currentUserId);
-    if (!isHost && !isMember) {
+    if (!group.isParticipant(currentUserId)) {
       throw new BaseException(SettlementErrorCode.NO_ACCESS_TO_GROUP);
     }
   }
