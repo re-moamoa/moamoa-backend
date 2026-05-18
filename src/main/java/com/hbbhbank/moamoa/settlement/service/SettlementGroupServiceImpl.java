@@ -279,6 +279,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
 
   /**
    * 방장에게 송금하기
+   *
+   * 동시성 제어:
+   * - 여러 멤버가 동시에 호스트 지갑으로 송금할 수 있으므로 PESSIMISTIC_WRITE 락 적용
+   * - 두 지갑을 ID 오름차순으로 한 번에 락을 걸어 데드락 방지
    */
   @Override
   @Transactional
@@ -289,16 +293,16 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    Wallet toWallet = group.getReferencedWallet(); // 방장의 공유 지갑 조회
-    if (toWallet == null) {
+    Wallet toWalletRef = group.getReferencedWallet(); // 방장의 공유 지갑 조회
+    if (toWalletRef == null) {
       throw new BaseException(WalletErrorCode.NOT_FOUND_WALLET);
     }
 
-    // 로그인한 사용자 지갑 조회
-    Wallet fromWallet = walletRepository.findByUserIdAndCurrency(user.getId(), toWallet.getCurrency())
+    // 락 없이 송금자 지갑 번호를 먼저 확인 (검증용)
+    Wallet fromWalletRef = walletRepository.findByUserIdAndCurrency(user.getId(), toWalletRef.getCurrency())
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
-    // 정산 상태가 진행 중이 아니면 예외 처리
+    // 이미 송금한 사용자인지 확인
     if (settlementTransactionRepository.existsByGroupAndFromUser(group, user)) {
       throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
     }
@@ -318,12 +322,27 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
 
     BigDecimal perAmount = totalAmount.divide(BigDecimal.valueOf(totalMemberCount), 2, RoundingMode.DOWN); // 1인당 정산 금액 계산
 
-    // 송금자의 잔액이 부족한 경우 예외처리
+    // 비관적 락(PESSIMISTIC_WRITE)으로 두 지갑을 ID 오름차순 동시 조회하여 데드락 방지
+    List<Wallet> lockedWallets = walletRepository.findByWalletNumberForUpdateV2(
+      List.of(fromWalletRef.getWalletNumber(), toWalletRef.getWalletNumber())
+    );
+
+    Wallet fromWallet = lockedWallets.stream()
+      .filter(w -> w.getWalletNumber().equals(fromWalletRef.getWalletNumber()))
+      .findFirst()
+      .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
+
+    Wallet toWallet = lockedWallets.stream()
+      .filter(w -> w.getWalletNumber().equals(toWalletRef.getWalletNumber()))
+      .findFirst()
+      .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
+
+    // 락 시점의 최신 잔액으로 부족 여부 재확인
     if (fromWallet.getBalance().compareTo(perAmount) < 0) {
       throw new BaseException(SettlementErrorCode.INSUFFICIENT_BALANCE);
     }
 
-    // 1. 실제 이체 수행
+    // 1. 실제 이체 수행 (락이 걸린 상태이므로 Lost Update 방지)
     fromWallet.decreaseBalance(perAmount);
     toWallet.increaseBalance(perAmount);
 
