@@ -16,9 +16,9 @@ import com.hbbhbank.moamoa.wallet.domain.*;
 import com.hbbhbank.moamoa.wallet.repository.ExternalWalletTransactionRepository;
 import com.hbbhbank.moamoa.wallet.repository.HwanbeeLinkRepository;
 import com.hbbhbank.moamoa.wallet.repository.WalletRepository;
-import com.hbbhbank.moamoa.wallet.service.CurrencyService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,11 +34,11 @@ public class RechargeServiceImpl implements RechargeService {
   private final OAuth2TokenService oAuth2TokenService;
   private final UserRepository userRepository;
   private final HwanbeeLinkRepository hwanbeeLinkRepository;
-  private final CurrencyService currencyService;
 
   private static final String MOAMOA_CORPORATE_ACCOUNT = "15002-402-000009";
 
   @Override
+  @Transactional
   public RechargeResponseDto charge(RechargeRequestDto dto) {
     Long userId = SecurityUtil.getCurrentUserId();
 
@@ -47,9 +47,7 @@ public class RechargeServiceImpl implements RechargeService {
 
     String accessToken = oAuth2TokenService.ensureAccessToken(user);
 
-    Currency currency = currencyService.getByCodeOrThrow(dto.currencyCode());
-
-    Wallet wallet = walletRepository.findByUserIdAndCurrency(userId, currency)
+    Wallet wallet = walletRepository.findByUserIdAndCurrencyCode(userId, dto.currencyCode())
       .orElseThrow(() -> new BaseException(TransferErrorCode.WALLET_NOT_FOUND));
 
     HwanbeeAccountLink hwanbeeAccount = hwanbeeLinkRepository.findByUserIdAndHwanbeeBankAccountNumber(userId, dto.hwanbeeAccountNumber())
@@ -68,7 +66,9 @@ public class RechargeServiceImpl implements RechargeService {
       accessToken
     );
 
-    wallet.increaseBalance(dto.amount());
+    // DB 원자적 UPDATE로 잔액 증가 — 단일 쿼리로 동시성 안전
+    // UPDATE wallets SET balance = balance + :amount WHERE wallet_id = :id
+    walletRepository.increaseBalanceAtomically(wallet.getId(), dto.amount());
 
     ExternalWalletTransaction transaction = ExternalWalletTransaction.create(
       wallet,

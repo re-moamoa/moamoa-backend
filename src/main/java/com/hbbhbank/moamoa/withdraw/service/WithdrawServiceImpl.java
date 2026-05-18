@@ -16,9 +16,9 @@ import com.hbbhbank.moamoa.wallet.repository.HwanbeeLinkRepository;
 import com.hbbhbank.moamoa.wallet.repository.WalletRepository;
 import com.hbbhbank.moamoa.withdraw.dto.request.PointWithdrawRequestDto;
 import com.hbbhbank.moamoa.withdraw.dto.response.PointWithdrawResponseDto;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -48,14 +48,15 @@ public class WithdrawServiceImpl implements WithdrawService {
     Wallet userWallet = walletRepository.findByUserId(userId)
       .orElseThrow(() -> new BaseException(TransferErrorCode.WALLET_NOT_FOUND));
 
-    if (userWallet.getBalance().compareTo(dto.amount()) < 0) {
-      throw new BaseException(TransferErrorCode.INSUFFICIENT_BALANCE);
-    }
-
     HwanbeeAccountLink linkedAccount = hwanbeeLinkRepository.findByUserIdAndHwanbeeBankAccountNumber(userId, dto.bankAccount())
       .orElseThrow(() -> new BaseException(HwanbeeErrorCode.ACCOUNT_LINK_FAILED));
 
-    userWallet.decreaseBalance(dto.amount());
+    // DB 원자적 UPDATE로 잔액 차감 — 잔액 체크와 차감이 단일 쿼리에서 처리되어 동시성 안전
+    // UPDATE wallets SET balance = balance - :amount WHERE wallet_id = :id AND balance >= :amount
+    int updatedRows = walletRepository.decreaseBalanceAtomically(userWallet.getId(), dto.amount());
+    if (updatedRows == 0) {
+      throw new BaseException(TransferErrorCode.INSUFFICIENT_BALANCE);
+    }
 
     ExternalWalletTransaction transaction = ExternalWalletTransaction.create(
       userWallet,
