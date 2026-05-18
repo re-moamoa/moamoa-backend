@@ -566,6 +566,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
    * 현재 로그인한 사용자가 방장으로 등록된 정산 그룹 목록 조회
    */
   @Override
+  @Transactional(readOnly = true)
   public List<SettlementGroupResponseDto> getMyGroups(Long userId) {
     // 방장이 나인 정산 그룹을 DB에서 조회
     return groupRepository.findByHostId(userId).stream()
@@ -578,6 +579,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
    * 현재 로그인한 사용자가 참여자로 등록된 정산 그룹 목록 조회
    */
   @Override
+  @Transactional(readOnly = true)
   public List<SettlementGroupResponseDto> getJoinedGroups(Long userId) {
     return memberRepository.findAllByUserId(userId).stream()
       // SettlementMember → 그룹 가져오기
@@ -626,6 +628,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
   }
 
   @Override
+  @Transactional(readOnly = true)
   public List<Long> getAllMemberUserIds(Long groupId) {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
