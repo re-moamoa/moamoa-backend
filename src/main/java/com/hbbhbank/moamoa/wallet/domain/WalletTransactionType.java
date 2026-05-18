@@ -13,6 +13,8 @@ public enum WalletTransactionType {
   TRANSFER_IN("TRANSFER_IN", "송금 받기"),
   SETTLEMENT_SEND("SETTLEMENT_SEND", "정산 하기"),
   SETTLEMENT_RECEIVE("SETTLEMENT_RECEIVE", "정산 받기"),
+  SETTLEMENT_REFUND_SEND("SETTLEMENT_REFUND_SEND", "정산 환불 보내기"),
+  SETTLEMENT_REFUND_RECEIVE("SETTLEMENT_REFUND_RECEIVE", "정산 환불 받기"),
 
   // ExternalWalletTransaction
   CHARGE("CHARGE", "충전"),
@@ -25,7 +27,7 @@ public enum WalletTransactionType {
   // 입금
   public boolean isIncomeType() {
     return switch (this) {
-      case CHARGE, TRANSFER_IN, SETTLEMENT_RECEIVE-> true;
+      case CHARGE, TRANSFER_IN, SETTLEMENT_RECEIVE, SETTLEMENT_REFUND_RECEIVE -> true;
       default -> false;
     };
   }
@@ -33,7 +35,7 @@ public enum WalletTransactionType {
   // 출금
   public boolean isExpenseType() {
     return switch (this) {
-      case QR_PAYMENT, WITHDRAWAL, TRANSFER_OUT, SETTLEMENT_SEND -> true;
+      case QR_PAYMENT, WITHDRAWAL, TRANSFER_OUT, SETTLEMENT_SEND, SETTLEMENT_REFUND_SEND -> true;
       default -> false;
     };
   }
