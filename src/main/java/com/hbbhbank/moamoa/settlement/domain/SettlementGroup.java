@@ -65,6 +65,9 @@ public class SettlementGroup {
   @Column(nullable = false)
   private Integer maxMembers;
 
+  @Column(name = "current_settlement_round", nullable = false)
+  private int currentSettlementRound = 0;
+
   @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<SettlementSharePeriod> sharePeriods = new ArrayList<>();
 
@@ -98,6 +101,14 @@ public class SettlementGroup {
 
   public void markSettlementComplete() {
     this.settlementStatus = SettlementStatus.COMPLETE;
+  }
+
+  public void markSettlementBefore() {
+    this.settlementStatus = SettlementStatus.BEFORE;
+  }
+
+  public void incrementSettlementRound() {
+    this.currentSettlementRound++;
   }
 
   public void incrementJoinAttemptCount() {

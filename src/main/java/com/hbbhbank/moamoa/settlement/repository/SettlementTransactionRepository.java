@@ -12,8 +12,11 @@ public interface SettlementTransactionRepository extends JpaRepository<Settlemen
   // 정산 그룹 기준 조회
   List<SettlementTransaction> findByGroup(SettlementGroup group);
 
-  // 중복 송금 방지용
-  boolean existsByGroupAndFromUser(SettlementGroup group, User fromUser);
+  // 특정 라운드의 정산 트랜잭션 조회
+  List<SettlementTransaction> findByGroupAndSettlementRound(SettlementGroup group, int settlementRound);
+
+  // 중복 송금 방지용 (라운드 기반)
+  boolean existsByGroupAndFromUserAndSettlementRound(SettlementGroup group, User fromUser, int settlementRound);
 
   void deleteAllByGroup(SettlementGroup group);
 }

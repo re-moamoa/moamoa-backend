@@ -59,8 +59,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     Wallet wallet = walletRepository.findById(request.walletId())
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
-    // 3. 해당 지갑이 이미 공유 지갑으로 사용 중인지 확인 -> 이미 공유 지갑으로 사용 중이면 예외 처리
-    if (groupRepository.existsByReferencedWallet(wallet)) {
+    // 3. 해당 지갑이 이미 활성 정산 그룹의 공유 지갑으로 사용 중인지 확인 (정산 완료된 그룹은 제외)
+    if (groupRepository.existsByReferencedWalletAndSettlementStatusNot(wallet, SettlementStatus.COMPLETE)) {
       throw new BaseException(SettlementErrorCode.WALLET_ALREADY_SHARED);
     }
 
@@ -168,9 +168,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       .findFirst()
       .ifPresent(p -> p.stop(LocalDateTime.now()));
 
-    // 3. 그룹 비활성화, 정산 상태 변경
+    // 3. 그룹 비활성화, 정산 상태 변경, 라운드 증가
     group.deactivate();
     group.markSettlementInProgress();
+    group.incrementSettlementRound();
 
     // 4. 정산 멤버 상태 초기화
     group.getMembers().forEach(SettlementMember::resetTransferred);
@@ -205,8 +206,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       .findFirst()
       .ifPresent(p -> p.stop(LocalDateTime.now()));
 
-    // 3. 기존 송금 내역 조회
-    List<SettlementTransaction> transactions = settlementTransactionRepository.findByGroup(group);
+    // 3. 현재 라운드의 송금 내역 조회
+    List<SettlementTransaction> transactions = settlementTransactionRepository
+      .findByGroupAndSettlementRound(group, group.getCurrentSettlementRound());
 
     // 4. 송금 완료된 거래만 환불 처리
     for (SettlementTransaction tx : transactions) {
@@ -236,8 +238,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 5. 정산 트랜잭션 삭제
     settlementTransactionRepository.deleteAll(transactions);
 
-    // 6. 그룹 상태 초기화
-    group.markSettlementComplete();
+    // 6. 그룹 상태 초기화 (정산 전 상태로 복원)
+    group.markSettlementBefore();
     group.deactivate();
   }
 
@@ -285,6 +287,64 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
         totalParticipantCount,                   // 전체 인원 수
         dividedAmount                            // 각자 분담 금액
       ))
+      .toList();
+  }
+
+  /**
+   * 이전 정산 내역 조회
+   * - 완료된 라운드별로 정산 트랜잭션을 그룹화하여 반환
+   * - 각 라운드의 총 금액, 1인당 분담 금액, 멤버별 송금 상세 포함
+   */
+  @Override
+  @Transactional(readOnly = true)
+  public List<SettlementHistoryResponseDto> getSettlementHistory(Long groupId) {
+    SettlementGroup group = groupRepository.findById(groupId)
+      .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
+
+    validateGroupParticipant(group);
+
+    // 그룹의 전체 정산 트랜잭션을 라운드별로 그룹화
+    List<SettlementTransaction> allTransactions = settlementTransactionRepository.findByGroup(group);
+
+    return allTransactions.stream()
+      .collect(Collectors.groupingBy(SettlementTransaction::getSettlementRound))
+      .entrySet().stream()
+      .sorted(Comparator.comparingInt(java.util.Map.Entry::getKey))
+      .map(entry -> {
+        int round = entry.getKey();
+        List<SettlementTransaction> roundTransactions = entry.getValue();
+
+        BigDecimal totalAmount = roundTransactions.stream()
+          .map(SettlementTransaction::getAmount)
+          .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        int memberCount = roundTransactions.size() + 1; // 멤버 + 방장
+
+        // 가장 마지막 송금 완료 시점을 라운드 완료 시점으로 사용
+        LocalDateTime completedAt = roundTransactions.stream()
+          .map(SettlementTransaction::getTransferredAt)
+          .filter(Objects::nonNull)
+          .max(LocalDateTime::compareTo)
+          .orElse(null);
+
+        List<SettlementHistoryResponseDto.SettlementHistoryDetailDto> details = roundTransactions.stream()
+          .map(tx -> new SettlementHistoryResponseDto.SettlementHistoryDetailDto(
+            tx.getFromUser().getId(),
+            tx.getAmount(),
+            tx.isTransferred(),
+            tx.getTransferredAt()
+          ))
+          .toList();
+
+        return new SettlementHistoryResponseDto(
+          round,
+          totalAmount,
+          roundTransactions.isEmpty() ? BigDecimal.ZERO : roundTransactions.get(0).getAmount(),
+          memberCount,
+          completedAt,
+          details
+        );
+      })
       .toList();
   }
 
@@ -340,8 +400,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     );
 
     // 비관적 락 획득 이후 중복 송금 재검증 — Check-Then-Act 레이스 컨디션 방지
-    // DB Unique 제약조건(uk_settlement_transaction_group_user)과 함께 Defense in Depth 적용
-    if (settlementTransactionRepository.existsByGroupAndFromUser(group, user)) {
+    // DB Unique 제약조건(uk_settlement_transaction_group_user_round)과 함께 Defense in Depth 적용
+    if (settlementTransactionRepository.existsByGroupAndFromUserAndSettlementRound(
+        group, user, group.getCurrentSettlementRound())) {
       throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
     }
 
@@ -370,8 +431,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       toWallet, fromWallet, WalletTransactionType.SETTLEMENT_RECEIVE, WalletTransactionStatus.SUCCESS, perAmount);
     internalWalletTransactionRepository.save(counterTx);
 
-    // 2. 정산 트랜잭션 저장
-    SettlementTransaction st = SettlementTransaction.create(group, user, perAmount);
+    // 2. 정산 트랜잭션 저장 (현재 라운드 기록)
+    SettlementTransaction st = SettlementTransaction.create(group, user, perAmount, group.getCurrentSettlementRound());
     st.markTransferred(tx); // 로그인한 사용자는 송금 완료된 상태로 표시
     settlementTransactionRepository.save(st);
 
@@ -390,26 +451,6 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
         .filter(p -> !p.isClosed())
         .findFirst()
         .ifPresent(p -> p.stop(LocalDateTime.now()));
-
-      // 4. 동일 멤버로 새 그룹 생성
-      SettlementGroup newGroup = SettlementGroup.builder()
-        .groupName(group.getGroupName())
-        .joinCode(UUID.randomUUID().toString().substring(0, 8))
-        .groupStatus(GroupStatus.INACTIVE)
-        .settlementStatus(SettlementStatus.BEFORE)
-        .host(group.getHost())
-        .referencedWallet(group.getReferencedWallet())
-        .maxMembers(group.getMaxMembers())
-        .build();
-      groupRepository.save(newGroup);
-
-      for (SettlementMember oldMember : group.getMembers()) {
-        SettlementMember newMember = SettlementMember.builder()
-          .user(oldMember.getUser())
-          .group(newGroup)
-          .build();
-        memberRepository.save(newMember);
-      }
     }
     return allDone;
   }
@@ -556,7 +597,13 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       throw new BaseException(SettlementErrorCode.ALREADY_ACTIVE);
     }
 
-    // 3. 그룹 활성화 및 새로운 공유 기간 시작
+    // 3. 정산 완료 상태라면 다음 정산 라운드를 위해 초기화
+    if (group.getSettlementStatus() == SettlementStatus.COMPLETE) {
+      group.markSettlementBefore();
+      group.getMembers().forEach(SettlementMember::resetTransferred);
+    }
+
+    // 4. 그룹 활성화 및 새로운 공유 기간 시작
     group.activate();
     SettlementSharePeriod newPeriod = SettlementSharePeriod.start(group, LocalDateTime.now());
     sharePeriodRepository.save(newPeriod);
