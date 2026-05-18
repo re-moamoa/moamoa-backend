@@ -1,6 +1,7 @@
 package com.hbbhbank.moamoa.settlement.domain;
 
-import com.hbbhbank.moamoa.settlement.repository.SettlementTransactionQueryRepository;
+import com.hbbhbank.moamoa.global.exception.BaseException;
+import com.hbbhbank.moamoa.settlement.exception.SettlementErrorCode;
 import com.hbbhbank.moamoa.user.domain.User;
 import com.hbbhbank.moamoa.wallet.domain.Wallet;
 import jakarta.persistence.*;
@@ -12,7 +13,6 @@ import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.DynamicUpdate;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +23,9 @@ import java.util.List;
 @DynamicUpdate
 @Table(name = "settlement_groups")
 public class SettlementGroup {
+
+  private static final int MAX_JOIN_ATTEMPTS = 5;
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   @Column(name = "settlement_group_id")
@@ -91,23 +94,47 @@ public class SettlementGroup {
   }
 
   public void deactivate() {
+    if (this.groupStatus == GroupStatus.INACTIVE) {
+      throw new BaseException(SettlementErrorCode.ALREADY_INACTIVE);
+    }
     this.groupStatus = GroupStatus.INACTIVE;
   }
 
   public void activate() {
+    if (this.groupStatus == GroupStatus.ACTIVE) {
+      throw new BaseException(SettlementErrorCode.ALREADY_ACTIVE);
+    }
     this.groupStatus = GroupStatus.ACTIVE;
   }
 
   public void markSettlementInProgress() {
+    if (this.settlementStatus != SettlementStatus.BEFORE) {
+      throw new BaseException(SettlementErrorCode.SETTLEMENT_ALREADY_STARTED);
+    }
     this.settlementStatus = SettlementStatus.IN_PROGRESS;
   }
 
   public void markSettlementComplete() {
+    if (this.settlementStatus != SettlementStatus.IN_PROGRESS) {
+      throw new BaseException(SettlementErrorCode.SETTLEMENT_NOT_IN_PROGRESS);
+    }
     this.settlementStatus = SettlementStatus.COMPLETE;
   }
 
   public void markSettlementBefore() {
+    if (this.settlementStatus == SettlementStatus.BEFORE) {
+      throw new BaseException(SettlementErrorCode.SETTLEMENT_ALREADY_STARTED);
+    }
     this.settlementStatus = SettlementStatus.BEFORE;
+  }
+
+  /**
+   * 정산이 진행 중인 상태에서는 삭제/탈퇴 등의 작업을 수행할 수 없다.
+   */
+  public void validateNotInProgress() {
+    if (this.settlementStatus == SettlementStatus.IN_PROGRESS) {
+      throw new BaseException(SettlementErrorCode.SETTLEMENT_IN_PROGRESS);
+    }
   }
 
   public void incrementSettlementRound() {
@@ -118,11 +145,14 @@ public class SettlementGroup {
     this.joinAttemptCount++;
   }
 
-  // 초대 코드 검증
+  /**
+   * 초대 코드 유효성 검증 (만료 시간 + 시도 횟수)
+   */
   public boolean isJoinCodeValid() {
-    return this.joinCode != null &&
-      this.joinCodeExpiredAt != null &&
-      this.joinCodeExpiredAt.isAfter(LocalDateTime.now());
+    return this.joinCode != null
+      && this.joinCodeExpiredAt != null
+      && this.joinCodeExpiredAt.isAfter(LocalDateTime.now())
+      && this.joinAttemptCount <= MAX_JOIN_ATTEMPTS;
   }
 
   // 초대 코드 재발급
@@ -134,6 +164,22 @@ public class SettlementGroup {
 
   public boolean hasMember(Long userId) {
     return members.stream().anyMatch(m -> m.getUser().getId().equals(userId));
+  }
+
+  /**
+   * 방장 또는 멤버인지 확인
+   */
+  public boolean isParticipant(Long userId) {
+    return this.host.getId().equals(userId) || hasMember(userId);
+  }
+
+  /**
+   * 멤버 수가 최대 인원에 도달했는지 검증
+   */
+  public void validateMemberLimit() {
+    if (this.members.size() >= this.maxMembers) {
+      throw new BaseException(SettlementErrorCode.MEMBER_LIMIT_EXCEEDED);
+    }
   }
 
 }
