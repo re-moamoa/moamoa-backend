@@ -118,18 +118,12 @@ public class WalletRepositoryImpl implements WalletRepositoryCustom {
 
   @Override
   public List<Wallet> findByWalletNumberForUpdateV2(List<String> walletNumbers) {
-    List<Wallet> ws = queryFactory
+    return queryFactory
       .selectFrom(wallet)
       .join(wallet.currency, currency).fetchJoin()
       .where(wallet.walletNumber.in(walletNumbers))
       .orderBy(wallet.id.asc())
       .setLockMode(LockModeType.PESSIMISTIC_WRITE)
       .fetch();
-
-    for (Wallet w : ws) {
-      em.lock(w, LockModeType.PESSIMISTIC_WRITE);
-    }
-
-    return ws;
   }
 }
