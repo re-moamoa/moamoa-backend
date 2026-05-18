@@ -8,6 +8,7 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.DynamicUpdate;
 
@@ -41,6 +42,7 @@ public class SettlementGroup {
   @Column(name = "settlement_status", nullable = false)
   private SettlementStatus settlementStatus; // BEFORE, IN_PROGRESS, COMPLETE (정산 상태)
 
+  @BatchSize(size = 100)
   @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<SettlementMember> members = new ArrayList<>(); // 정산 참여자 목록, 그룹 기반으로 멤버들 조회 필요함.
 
@@ -65,6 +67,7 @@ public class SettlementGroup {
   @Column(nullable = false)
   private Integer maxMembers;
 
+  @BatchSize(size = 100)
   @OneToMany(mappedBy = "group", cascade = CascadeType.ALL, orphanRemoval = true)
   private List<SettlementSharePeriod> sharePeriods = new ArrayList<>();
 
