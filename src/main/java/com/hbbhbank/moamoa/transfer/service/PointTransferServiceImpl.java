@@ -10,7 +10,7 @@ import com.hbbhbank.moamoa.wallet.domain.WalletTransactionStatus;
 import com.hbbhbank.moamoa.wallet.domain.WalletTransactionType;
 import com.hbbhbank.moamoa.wallet.repository.InternalWalletTransactionRepository;
 import com.hbbhbank.moamoa.wallet.repository.WalletRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -142,6 +142,11 @@ public class PointTransferServiceImpl implements PointTransferService {
   @Override
   @Transactional
   public PointTransferResponseDto transferByUserV3(PointTransferRequestDto dto) {
+    // 0) 동일 지갑 번호 검증 — DB 조회 전에 빠르게 차단
+    if (dto.fromWalletNumber().equals(dto.toWalletNumber())) {
+      throw new BaseException(TransferErrorCode.CANNOT_TRANSFER_TO_SELF);
+    }
+
     // 1) 한 번의 FOR UPDATE 조회로 두 지갑을 락 & 읽기
     List<Wallet> wallets = walletRepository.findByWalletNumberForUpdateV2(
       List.of(dto.fromWalletNumber(), dto.toWalletNumber())
