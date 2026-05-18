@@ -17,7 +17,10 @@ import java.time.LocalDateTime;
 @Entity
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @DynamicUpdate
-@Table(name = "settlement_transactions")
+@Table(name = "settlement_transactions",
+  uniqueConstraints = @UniqueConstraint(
+    name = "uk_settlement_transaction_group_user",
+    columnNames = {"settlement_group_id", "from_user_id"}))
 public class SettlementTransaction { // 정산 결과 내역 (누가 누구에게 송금해야 하는지)
 
   @Id
