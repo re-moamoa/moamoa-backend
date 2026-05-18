@@ -222,11 +222,11 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
         }
         walletRepository.increaseBalanceAtomically(from.getId(), amount);
 
-        // 환불 트랜잭션 생성
+        // 환불 트랜잭션 생성 — 정산 송금과 구분하기 위해 REFUND 전용 타입 사용
         InternalWalletTransaction refundSend = InternalWalletTransaction.create(
-          to, from, WalletTransactionType.SETTLEMENT_SEND, WalletTransactionStatus.SUCCESS, amount);
+          to, from, WalletTransactionType.SETTLEMENT_REFUND_SEND, WalletTransactionStatus.SUCCESS, amount);
         InternalWalletTransaction refundReceive = InternalWalletTransaction.create(
-          from, to, WalletTransactionType.SETTLEMENT_RECEIVE, WalletTransactionStatus.SUCCESS, amount);
+          from, to, WalletTransactionType.SETTLEMENT_REFUND_RECEIVE, WalletTransactionStatus.SUCCESS, amount);
 
         internalWalletTransactionRepository.save(refundSend);
         internalWalletTransactionRepository.save(refundReceive);
@@ -369,7 +369,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     internalWalletTransactionRepository.save(tx);
 
     InternalWalletTransaction counterTx = InternalWalletTransaction.create(
-      toWallet, fromWallet, WalletTransactionType.TRANSFER_IN, WalletTransactionStatus.SUCCESS, perAmount);
+      toWallet, fromWallet, WalletTransactionType.SETTLEMENT_RECEIVE, WalletTransactionStatus.SUCCESS, perAmount);
     internalWalletTransactionRepository.save(counterTx);
 
     // 2. 정산 트랜잭션 저장
