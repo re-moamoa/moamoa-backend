@@ -27,7 +27,8 @@ public enum SettlementErrorCode implements ErrorCode {
   CANNOT_CANCEL_WHILE_IN_PROGRESS(HttpStatus.CONFLICT, "SETTLEMENT_017", "정산이 진행 중인 상태에서는 취소할 수 없습니다."),
   NO_ZERO_TO_SETTLE(HttpStatus.BAD_REQUEST, "SETTLEMENT_018", "정산 금액이 0원이거나, 정산할 멤버가 0명입니다."),
   WALLET_NOT_LINKED(HttpStatus.BAD_REQUEST, "SETTLEMENT_019", "지갑이 연결되어 있지 않습니다."),
-  WALLET_ALREADY_SHARED(HttpStatus.CONFLICT, "SETTLEMENT_020", "해당 지갑은 이미 다른 정산 그룹의 공유 지갑으로 사용 중입니다.")
+  WALLET_ALREADY_SHARED(HttpStatus.CONFLICT, "SETTLEMENT_020", "해당 지갑은 이미 다른 정산 그룹의 공유 지갑으로 사용 중입니다."),
+  SETTLEMENT_TRANSACTION_NOT_FOUND(HttpStatus.NOT_FOUND, "SETTLEMENT_021", "정산 트랜잭션이 존재하지 않습니다. 정산 시작 후 송금해주세요.")
   ;
 
   private final HttpStatus status;
