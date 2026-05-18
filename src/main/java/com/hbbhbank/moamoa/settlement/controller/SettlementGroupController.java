@@ -1,11 +1,12 @@
 package com.hbbhbank.moamoa.settlement.controller;
 
 import com.hbbhbank.moamoa.global.common.BaseResponse;
+import com.hbbhbank.moamoa.settlement.domain.GroupStatus;
 import com.hbbhbank.moamoa.settlement.dto.request.CreateSettlementGroupRequestDto;
+import com.hbbhbank.moamoa.settlement.dto.request.UpdateGroupStatusRequestDto;
 import com.hbbhbank.moamoa.settlement.dto.request.VerifyJoinCodeRequestDto;
 import com.hbbhbank.moamoa.settlement.dto.response.*;
 import com.hbbhbank.moamoa.settlement.service.SettlementGroupService;
-import com.hbbhbank.moamoa.transfer.dto.request.PointTransferRequestDto;
 import com.hbbhbank.moamoa.wallet.dto.response.transaction.TransactionResponseDto;
 import com.hbbhbank.moamoa.user.service.UserService;
 import jakarta.validation.Valid;
@@ -108,7 +109,7 @@ public class SettlementGroupController {
   /**
    * 그룹 삭제
    */
-  @PostMapping("/{groupId}")
+  @DeleteMapping("/{groupId}")
   public ResponseEntity<BaseResponse<Void>> deleteGroup(@PathVariable Long groupId) {
     settlementGroupService.deleteGroup(groupId);
     return ResponseEntity.ok(BaseResponse.success(null));
@@ -126,20 +127,18 @@ public class SettlementGroupController {
   }
 
   /**
-   * 정산 그룹 비활성화 (공유 중지)
+   * 정산 그룹 상태 변경 (활성화/비활성화)
    */
-  @PostMapping("/{groupId}/deactivate")
-  public ResponseEntity<BaseResponse<Void>> deactivateGroup(@PathVariable Long groupId) {
-    settlementGroupService.deactivateGroup(groupId);
-    return ResponseEntity.ok(BaseResponse.success(null));
-  }
-
-  /**
-   * 정산 그룹 활성화 (공유 시작)
-   */
-  @PostMapping("/{groupId}/activate")
-  public ResponseEntity<BaseResponse<Void>> activateGroup(@PathVariable Long groupId) {
-    settlementGroupService.activateGroup(groupId);
+  @PatchMapping("/{groupId}/status")
+  public ResponseEntity<BaseResponse<Void>> updateGroupStatus(
+    @PathVariable Long groupId,
+    @RequestBody @Valid UpdateGroupStatusRequestDto request
+  ) {
+    if (request.status() == GroupStatus.ACTIVE) {
+      settlementGroupService.activateGroup(groupId);
+    } else {
+      settlementGroupService.deactivateGroup(groupId);
+    }
     return ResponseEntity.ok(BaseResponse.success(null));
   }
 
@@ -180,7 +179,7 @@ public class SettlementGroupController {
   /**
    * 멤버가 그룹 나가기
    */
-  @PostMapping("/{groupId}/leave")
+  @DeleteMapping("/{groupId}/members/me")
   public ResponseEntity<BaseResponse<Void>> leaveGroup(@PathVariable Long groupId) {
     settlementGroupService.leaveGroup(groupId);
     return ResponseEntity.ok(BaseResponse.success(null));
