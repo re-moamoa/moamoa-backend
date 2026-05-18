@@ -129,7 +129,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 2. 새로운 초대 코드 발급
+    // 2. 방장 권한 검증
+    validateHost(group);
+
+    // 3. 새로운 초대 코드 발급
     String newCode = UUID.randomUUID().toString().substring(0, 8);
 
     // 3. 초대 코드 만료 시간 설정 (10분 후)
@@ -150,7 +153,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 1. 공유 주기 종료 전에 정산 금액 계산
+    // 1. 방장 권한 검증
+    validateHost(group);
+
+    // 2. 공유 주기 종료 전에 정산 금액 계산
     BigDecimal totalAmount = settlementTransactionQueryRepository.sumNetSettlementAmount(group);
     if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
       throw new BaseException(SettlementErrorCode.NO_ZERO_TO_SETTLE);
@@ -190,7 +196,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 2. 현재 활성화된 공유 구간이 있다면 종료 처리
+    // 2. 방장 권한 검증
+    validateHost(group);
+
+    // 3. 현재 활성화된 공유 구간이 있다면 종료 처리
     group.getSharePeriods().stream()
       .filter(p -> p.getStoppedAt() == null)
       .findFirst()
@@ -245,7 +254,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 2. 해당 그룹의 공유 주기 목록 조회
+    // 2. 그룹 참여자(방장 또는 멤버) 권한 검증
+    validateGroupParticipant(group);
+
+    // 3. 해당 그룹의 공유 주기 목록 조회
     List<SettlementSharePeriod> periods = sharePeriodRepository.findAllByGroup(group);
     if (periods.isEmpty()) return List.of();
 
@@ -295,6 +307,11 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 정산 그룹방 조회
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
+
+    // 그룹 멤버 권한 검증 (방장이 아닌 멤버만 송금 가능)
+    if (!group.hasMember(user.getId())) {
+      throw new BaseException(SettlementErrorCode.NO_ACCESS_TO_GROUP);
+    }
 
     Wallet toWalletRef = group.getReferencedWallet(); // 방장의 공유 지갑 조회
     if (toWalletRef == null) {
@@ -412,7 +429,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 2. 정산이 진행 중이라면 삭제 불가
+    // 2. 방장 권한 검증
+    validateHost(group);
+
+    // 3. 정산이 진행 중이라면 삭제 불가
     if (group.getSettlementStatus() == SettlementStatus.IN_PROGRESS) {
       throw new BaseException(SettlementErrorCode.SETTLEMENT_IN_PROGRESS);
     }
@@ -464,6 +484,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
+    // 2. 그룹 참여자(방장 또는 멤버) 권한 검증
+    validateGroupParticipant(group);
+
     Wallet sharedWallet = group.getReferencedWallet();
     if (sharedWallet == null) {
       throw new BaseException(SettlementErrorCode.WALLET_NOT_LINKED);
@@ -500,6 +523,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
+    // 방장 권한 검증
+    validateHost(group);
+
     if (group.getGroupStatus() == GroupStatus.INACTIVE) {
       throw new BaseException(SettlementErrorCode.ALREADY_INACTIVE);
     }
@@ -524,7 +550,10 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
-    // 2. 이미 활성화된 그룹이라면 예외
+    // 2. 방장 권한 검증
+    validateHost(group);
+
+    // 3. 이미 활성화된 그룹이라면 예외
     if (group.getGroupStatus() == GroupStatus.ACTIVE) {
       throw new BaseException(SettlementErrorCode.ALREADY_ACTIVE);
     }
@@ -592,6 +621,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
 
+    // 그룹 참여자(방장 또는 멤버) 권한 검증
+    validateGroupParticipant(group);
+
     return group.getMembers().size();
   }
 
@@ -599,6 +631,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
   public List<Long> getAllMemberUserIds(Long groupId) {
     SettlementGroup group = groupRepository.findById(groupId)
       .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
+
+    // 그룹 참여자(방장 또는 멤버) 권한 검증
+    validateGroupParticipant(group);
 
     List<Long> memberIds = group.getMembers().stream()
       .map(member -> member.getUser().getId())
@@ -611,5 +646,29 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     }
 
     return memberIds;
+  }
+
+  /**
+   * 방장 권한 검증
+   * - 현재 로그인한 사용자가 해당 그룹의 방장인지 확인
+   */
+  private void validateHost(SettlementGroup group) {
+    Long currentUserId = userService.getCurrentUserId();
+    if (!group.getHost().getId().equals(currentUserId)) {
+      throw new BaseException(SettlementErrorCode.NO_ACCESS_TO_GROUP);
+    }
+  }
+
+  /**
+   * 그룹 참여자(방장 또는 멤버) 권한 검증
+   * - 현재 로그인한 사용자가 해당 그룹의 방장이거나 멤버인지 확인
+   */
+  private void validateGroupParticipant(SettlementGroup group) {
+    Long currentUserId = userService.getCurrentUserId();
+    boolean isHost = group.getHost().getId().equals(currentUserId);
+    boolean isMember = group.hasMember(currentUserId);
+    if (!isHost && !isMember) {
+      throw new BaseException(SettlementErrorCode.NO_ACCESS_TO_GROUP);
+    }
   }
 }
