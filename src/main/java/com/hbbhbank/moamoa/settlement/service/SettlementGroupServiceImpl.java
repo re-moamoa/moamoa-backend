@@ -19,13 +19,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.hbbhbank.moamoa.settlement.util.SettlementAmountDistributor;
+import com.hbbhbank.moamoa.settlement.util.SettlementAmountDistributor.DistributionResult;
+
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -176,11 +175,45 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 4. 정산 멤버 상태 초기화
     group.getMembers().forEach(SettlementMember::resetTransferred);
 
-    // 5. 정산 금액 계산
-    int totalMemberCount = group.getMembers().size() + 1; // 방장 포함
-    BigDecimal dividedAmount = totalAmount.divide(BigDecimal.valueOf(totalMemberCount), 2, RoundingMode.DOWN);
+    // 5. 사다리타기(랜덤) 방식으로 금액 분배 — 나머지 금액을 공정하게 배분
+    List<Long> allMemberUserIds = new ArrayList<>();
+    allMemberUserIds.add(group.getHost().getId()); // 방장 포함
+    group.getMembers().forEach(m -> allMemberUserIds.add(m.getUser().getId()));
 
-    return new SettlementStartResponseDto(totalMemberCount, totalAmount, dividedAmount);
+    String currencyCode = group.getReferencedWallet().getCurrency().getCode();
+    BigDecimal smallestUnit = CurrencyUnit.fromCode(currencyCode).getSmallestUnit();
+
+    DistributionResult distribution = SettlementAmountDistributor.distribute(
+      totalAmount, allMemberUserIds, smallestUnit, new Random()
+    );
+
+    // 6. 각 멤버별 SettlementTransaction 미리 생성 (transferred=false, 확정된 분담액)
+    // → transferToHost()에서 이 트랜잭션을 조회하여 확정된 금액으로 송금
+    Set<Long> extraPayerSet = new HashSet<>(distribution.extraPayerIds());
+    for (SettlementMember member : group.getMembers()) {
+      Long userId = member.getUser().getId();
+      BigDecimal memberAmount = distribution.memberAmounts().get(userId);
+
+      SettlementTransaction st = SettlementTransaction.create(
+        group, member.getUser(), memberAmount, group.getCurrentSettlementRound()
+      );
+      settlementTransactionRepository.save(st);
+    }
+
+    // 7. 응답 DTO 생성 — 멤버별 실제 분담액 + 사다리타기 당첨 여부 포함
+    int totalMemberCount = allMemberUserIds.size();
+    List<MemberSettlementAmountDto> memberAmounts = allMemberUserIds.stream()
+      .map(userId -> new MemberSettlementAmountDto(
+        userId,
+        distribution.memberAmounts().get(userId),
+        extraPayerSet.contains(userId)
+      ))
+      .toList();
+
+    return new SettlementStartResponseDto(
+      totalMemberCount, totalAmount, distribution.baseAmount(),
+      distribution.remainder(), memberAmounts
+    );
   }
 
   /**
@@ -245,8 +278,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
 
   /**
    * 정산 내역 조회
-   * - 공유 지갑에서 공유된 거래 내역의 총합을 계산
-   * - 참여자 수로 나누어 1인당 정산 금액 계산
+   * - startSettlement()에서 미리 생성된 SettlementTransaction을 조회하여
+   *   확정된 멤버별 분담액(사다리타기 결과 반영)을 반환
    * - 방장을 제외한 멤버별로 정산 응답 DTO 생성
    */
   @Override
@@ -259,7 +292,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     // 2. 그룹 참여자(방장 또는 멤버) 권한 검증
     validateGroupParticipant(group);
 
-    // 3. 정산 금액 계산 (출금 - 입금, startSettlement/transferToHost와 동일한 계산 로직)
+    // 3. 정산 총액 계산
     BigDecimal totalAmount = settlementTransactionQueryRepository.sumNetSettlementAmount(group);
 
     // 4. 참여자 수 = 멤버 수 + 방장 1명
@@ -269,24 +302,41 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       throw new BaseException(SettlementErrorCode.NO_ZERO_TO_SETTLE);
     }
 
-    // 5. 1인당 분담 금액 계산 (소수점 아래 버림)
-    BigDecimal dividedAmount = totalAmount.divide(
-      BigDecimal.valueOf(totalParticipantCount),
-      2,
-      RoundingMode.DOWN
+    // 5. 현재 라운드의 미리 생성된 SettlementTransaction에서 확정된 분담액 조회
+    List<SettlementTransaction> preCreatedTransactions = settlementTransactionRepository
+      .findByGroupAndSettlementRound(group, group.getCurrentSettlementRound());
+
+    // 사다리타기 기본 분담액 계산 (당첨 여부 판별용)
+    String currencyCode = group.getReferencedWallet().getCurrency().getCode();
+    BigDecimal smallestUnit = CurrencyUnit.fromCode(currencyCode).getSmallestUnit();
+    int scale = smallestUnit.stripTrailingZeros().scale();
+    if (scale < 0) scale = 0;
+    BigDecimal baseAmount = totalAmount.divide(
+      BigDecimal.valueOf(totalParticipantCount), scale, java.math.RoundingMode.DOWN
     );
 
     // 6. 방장을 제외한 각 멤버별 정산 응답 DTO 생성
+    Map<Long, SettlementTransaction> txByUserId = preCreatedTransactions.stream()
+      .collect(Collectors.toMap(tx -> tx.getFromUser().getId(), tx -> tx));
+
     return group.getMembers().stream()
       .filter(member -> !member.getUser().equals(group.getHost()))
-      .map(member -> new SettlementTransactionResponseDto(
-        member.getUser().getId(),                // fromUserId
-        group.getHost().getId(),                 // toUserId
-        totalAmount,                             // 정산 총합
-        member.isHasTransferred(),               // 송금 여부
-        totalParticipantCount,                   // 전체 인원 수
-        dividedAmount                            // 각자 분담 금액
-      ))
+      .map(member -> {
+        Long userId = member.getUser().getId();
+        SettlementTransaction tx = txByUserId.get(userId);
+        BigDecimal memberAmount = (tx != null) ? tx.getAmount() : baseAmount;
+        boolean isExtraPayer = (tx != null) && memberAmount.compareTo(baseAmount) > 0;
+
+        return new SettlementTransactionResponseDto(
+          userId,                                  // fromUserId
+          group.getHost().getId(),                 // toUserId
+          totalAmount,                             // 정산 총합
+          member.isHasTransferred(),               // 송금 여부
+          totalParticipantCount,                   // 전체 인원 수
+          memberAmount,                            // 해당 멤버의 확정 분담액
+          isExtraPayer                             // 사다리타기 당첨 여부
+        );
+      })
       .toList();
   }
 
@@ -351,6 +401,9 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
   /**
    * 방장에게 송금하기
    *
+   * startSettlement()에서 미리 생성된 SettlementTransaction의 확정 금액으로 송금.
+   * 사다리타기 결과가 이미 반영된 개별 분담액을 사용하므로, 나머지 금액 누락 없이 정확한 정산 수행.
+   *
    * 동시성 제어:
    * - 여러 멤버가 동시에 호스트 지갑으로 송금할 수 있으므로 PESSIMISTIC_WRITE 락 적용
    * - 두 지갑을 ID 오름차순으로 한 번에 락을 걸어 데드락 방지
@@ -379,20 +432,17 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     Wallet fromWalletRef = walletRepository.findByUserIdAndCurrency(user.getId(), toWalletRef.getCurrency())
       .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
-    BigDecimal totalAmount = settlementTransactionQueryRepository.sumNetSettlementAmount(group); // 정산 금액 계산
-    int totalMemberCount = group.getMembers().size() + 1; // 정산 멤버 수
+    // startSettlement()에서 미리 생성된 SettlementTransaction 조회 → 확정된 분담액 사용
+    SettlementTransaction st = settlementTransactionRepository
+      .findByGroupAndFromUserAndSettlementRound(group, user, group.getCurrentSettlementRound())
+      .orElseThrow(() -> new BaseException(SettlementErrorCode.SETTLEMENT_TRANSACTION_NOT_FOUND));
 
-    // 정산 멤버 수가 0명이면 예외 처리
-    if (totalMemberCount == 0) {
-      throw new BaseException(SettlementErrorCode.NO_ZERO_TO_SETTLE);
+    // 이미 송금 완료된 경우 중복 방지
+    if (st.isTransferred()) {
+      throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
     }
 
-    // 정산 금액이 0원이면 예외 처리
-    if (totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
-      throw new BaseException(SettlementErrorCode.NO_ZERO_TO_SETTLE);
-    }
-
-    BigDecimal perAmount = totalAmount.divide(BigDecimal.valueOf(totalMemberCount), 2, RoundingMode.DOWN); // 1인당 정산 금액 계산
+    BigDecimal perAmount = st.getAmount(); // 사다리타기 결과가 반영된 개별 분담액
 
     // 비관적 락(PESSIMISTIC_WRITE)으로 두 지갑을 ID 오름차순 동시 조회하여 데드락 방지
     List<Wallet> lockedWallets = walletRepository.findByWalletNumberForUpdateV2(
@@ -400,9 +450,7 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
     );
 
     // 비관적 락 획득 이후 중복 송금 재검증 — Check-Then-Act 레이스 컨디션 방지
-    // DB Unique 제약조건(uk_settlement_transaction_group_user_round)과 함께 Defense in Depth 적용
-    if (settlementTransactionRepository.existsByGroupAndFromUserAndSettlementRound(
-        group, user, group.getCurrentSettlementRound())) {
+    if (st.isTransferred()) {
       throw new BaseException(SettlementErrorCode.USER_ALREADY_TRANSFERRED);
     }
 
@@ -431,10 +479,8 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
       toWallet, fromWallet, WalletTransactionType.SETTLEMENT_RECEIVE, WalletTransactionStatus.SUCCESS, perAmount);
     internalWalletTransactionRepository.save(counterTx);
 
-    // 2. 정산 트랜잭션 저장 (현재 라운드 기록)
-    SettlementTransaction st = SettlementTransaction.create(group, user, perAmount, group.getCurrentSettlementRound());
-    st.markTransferred(tx); // 로그인한 사용자는 송금 완료된 상태로 표시
-    settlementTransactionRepository.save(st);
+    // 2. 미리 생성된 SettlementTransaction을 송금 완료로 변경
+    st.markTransferred(tx);
 
     group.getMembers().stream()
       .filter(m -> m.getUser().equals(user))
