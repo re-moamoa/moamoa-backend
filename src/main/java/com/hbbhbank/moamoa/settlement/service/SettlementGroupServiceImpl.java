@@ -57,11 +57,11 @@ public class SettlementGroupServiceImpl implements SettlementGroupService {
 
     // 2. 지갑 조회
     Wallet wallet = walletRepository.findById(request.walletId())
-      .orElseThrow(() -> new BaseException(SettlementErrorCode.GROUP_NOT_FOUND));
+      .orElseThrow(() -> new BaseException(WalletErrorCode.NOT_FOUND_WALLET));
 
     // 3. 해당 지갑이 이미 공유 지갑으로 사용 중인지 확인 -> 이미 공유 지갑으로 사용 중이면 예외 처리
     if (groupRepository.existsByReferencedWallet(wallet)) {
-      throw new BaseException(SettlementErrorCode.SETTLEMENT_ALREADY_STARTED);
+      throw new BaseException(SettlementErrorCode.WALLET_ALREADY_SHARED);
     }
 
     // 4. 그룹 생성
