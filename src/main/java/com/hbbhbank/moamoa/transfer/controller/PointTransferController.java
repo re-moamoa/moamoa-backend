@@ -1,6 +1,7 @@
 package com.hbbhbank.moamoa.transfer.controller;
 
 import com.hbbhbank.moamoa.global.common.BaseResponse;
+import com.hbbhbank.moamoa.global.idempotency.Idempotent;
 import com.hbbhbank.moamoa.transfer.dto.request.PointTransferRequestDto;
 import com.hbbhbank.moamoa.transfer.dto.response.PointTransferResponseDto;
 import com.hbbhbank.moamoa.transfer.service.PointTransferService;
@@ -39,8 +40,12 @@ public class PointTransferController {
   }
 
   /**
-   * 사용자 포인트 송금 요청 (데드락 해결 + 동시성 해결)
+   * 사용자 포인트 송금 요청 (데드락 해결 + 동시성 해결 + 멱등성 보장)
+   *
+   * 요청 헤더에 {@code Idempotency-Key}를 포함해야 한다.
+   * 동일 키로 재요청 시 최초 응답을 그대로 반환하여 중복 송금을 방지한다.
    */
+  @Idempotent
   @PostMapping("/points-v3")
   public ResponseEntity<BaseResponse<PointTransferResponseDto>> transferPointsV3(
     @RequestBody @Valid PointTransferRequestDto requestDto
